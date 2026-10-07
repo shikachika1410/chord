@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chord Library 🎸</title>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff3f9;--bg2:#eaf3ff;--card:#fff;--tx:#3a3558;--mut:#8f8bb0;--ac:#f58ab9;--ac2:#82b8ff;--ch:#4a86e8;--bd:#fbdcec;--line:#f9a8d424;color-scheme:light}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font-family:Nunito,system-ui,sans-serif;color:var(--tx);min-height:100vh;
+background:repeating-linear-gradient(to bottom,transparent 0 22px,var(--line) 22px 23px),linear-gradient(160deg,var(--bg),var(--bg2)) fixed}
+header{padding:14px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:linear-gradient(90deg,#f9a8d4,#a5c9ff);box-shadow:0 6px 20px #f9a8d466}
+h1{font-family:Pacifico,cursive;font-weight:400;font-size:24px;margin:0;flex:1;min-width:160px;color:#fff;display:flex;align-items:center;gap:10px;text-shadow:0 2px 6px #0002}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:8px 12px}
+button{cursor:pointer;transition:transform .1s}button:active{transform:scale(.96)}
+button.p,button.on{background:linear-gradient(90deg,var(--ac),var(--ac2));color:#fff;border-color:transparent;font-weight:800}
+main{max-width:980px;margin:auto;padding:16px 16px 100px}
+.bar{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:10px}
+@media(max-width:620px){.bar{grid-template-columns:1fr 1fr}.bar input{grid-column:1/3}}
+.import{width:100%;margin-bottom:14px;border-style:dashed;border-width:2px;border-color:var(--ac);font-weight:800}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.gh{grid-column:1/-1;font-family:Pacifico,cursive;color:var(--ac);font-size:18px;margin-top:8px}
+.it{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:14px;cursor:pointer;display:flex;gap:12px;align-items:center;box-shadow:0 4px 14px #f472b61f;transition:transform .15s,box-shadow .15s}
+.it:hover{transform:translateY(-3px);box-shadow:0 8px 20px #7cb7ff44}
+.ic{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--ac2));display:grid;place-items:center;font-size:20px;flex:none}
+.it b{display:block}.it small{color:var(--mut)}
+.view{background:var(--card);border:1px solid var(--bd);border-radius:22px;padding:20px;box-shadow:0 8px 28px #7cb7ff33;margin-top:12px}
+h2{font-family:Pacifico,cursive;font-weight:400;font-size:28px;margin:0;background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.chips{margin:8px 0}.chips span{display:inline-grid;place-items:center;min-width:46px;height:50px;padding:0 10px;margin:4px;color:#fff;font-weight:800;background:linear-gradient(160deg,var(--ac),var(--ac2));border-radius:50% 50% 50% 50%/38% 38% 62% 62%;box-shadow:0 3px 8px #7cb7ff55}
+pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.5;overflow-x:auto;margin:14px 0 0;white-space:pre}
+pre .c{color:var(--ch);font-weight:700}pre .s{color:var(--ac);font-weight:800}
+.mut{color:var(--mut);font-size:13px}a{color:var(--ac);font-weight:700}
+.empty{text-align:center;color:var(--mut);padding:30px}
+dialog{max-height:92vh;overflow:auto;border:1px solid var(--bd);border-radius:22px;background:var(--card);color:var(--tx);width:min(560px,94vw);padding:18px}
+dialog::backdrop{background:#6b5f9a55}
+.box{background:var(--bg);border:1px dashed var(--ac);border-radius:14px;padding:10px 14px;margin:12px 0}.box pre{margin:6px 0 0}
+dialog label{display:block;font-size:13px;color:var(--mut);margin:9px 0 3px}
+dialog input,dialog textarea{width:100%}
+textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+#toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--ac),var(--ac2));color:#fff;padding:9px 18px;border-radius:20px;font-weight:800;display:none}
+.gchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.gchips button{padding:4px 13px;border-radius:20px;font-size:14px}
+.tag{display:inline-block;background:linear-gradient(90deg,var(--ac),var(--ac2));color:#fff;font-weight:800;border-radius:20px;padding:3px 12px;margin:3px 3px 3px 0;cursor:pointer;font-size:13px}
+.tools2{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}.tools2 button{padding:4px 12px}
+.it>div:nth-child(2){flex:1;min-width:0}
+.fv{margin-left:auto;background:none;border:none;font-size:22px;padding:0 4px;box-shadow:none}
+.st{font-size:28px;cursor:pointer;color:#f5b301;margin-right:2px;user-select:none}.rate{margin-left:6px}
+#asbar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:var(--card);border:1px solid var(--bd);border-radius:30px;padding:8px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 22px #82b8ff66;z-index:5;max-width:94vw}
+#asbar input[type=range]{width:110px;padding:0;accent-color:var(--ac)}
+</style>
+</head>
+<body>
+<header>
+  <h1><svg viewBox="0 0 64 64" width="38" height="38"><g transform="rotate(45 32 32)" fill="#fff"><rect x="29" y="2" width="6" height="30" rx="2"/><rect x="27" y="0" width="10" height="9" rx="3"/><ellipse cx="32" cy="40" rx="13" ry="10"/><ellipse cx="32" cy="53" rx="16" ry="11"/><circle cx="32" cy="46" r="5" fill="#f472b6"/></g></svg>Chord Library</h1>
+  <button id="exp">⬇ Backup</button><button id="imp">⬆ Restore</button>
+  <input type="file" id="file" accept=".json" hidden>
+  <button class="p" id="add">+ Lagu</button>
+</header>
+<main>
+  <section id="home">
+    <div class="bar">
+      <input id="q" placeholder="🔍 Cari judul / artis / genre…">
+      <select id="sort"><option value="az">A–Z</option><option value="genre">Per genre</option><option value="new">Terbaru</option><option value="rate">Rating tertinggi</option></select>
+      <select id="rf"><option value="0">Semua rating</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select>
+    </div>
+    <div class="gchips" id="gchips"></div>
+    <div class="list" id="list"></div>
+  </section>
+  <section id="page" hidden>
+    <button id="back">← Semua lagu</button>
+    <div class="view" id="view"></div>
+  </section>
+</main>
+<div id="asbar" hidden><button id="asplay" class="p">▶ Auto-scroll</button><span>🐢</span><input type="range" id="asspd" min="1" max="10" value="4"><span>🐇</span><b id="aslbl">4</b><button id="astop" title="Ke atas">⬆</button></div>
+<div id="toast"></div>
+
+<dialog id="dlg">
+  <h3 id="dt" style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">Tambah lagu</h3>
+  <label>Link Ultimate Guitar (judul &amp; artis terisi otomatis)</label><input id="f-link" placeholder="https://tabs.ultimate-guitar.com/...">
+  <label>Judul</label><input id="f-title">
+  <label>Artis</label><input id="f-artist">
+  <label>Genre (bisa lebih dari satu)</label>
+  <div id="gsel"></div>
+  <div class="row" style="justify-content:stretch;margin:6px 0 0"><select id="gpick" style="flex:1;min-width:0"></select><input id="gnew" placeholder="atau ketik genre baru" style="flex:1;min-width:0"><button type="button" id="gadd">+</button></div>
+  <label>Capo (kalau ada)</label><select id="f-capo" style="width:100%"><option value="0">Tanpa capo</option><option value="1">Capo fret 1</option><option value="2">Capo fret 2</option><option value="3">Capo fret 3</option><option value="4">Capo fret 4</option><option value="5">Capo fret 5</option><option value="6">Capo fret 6</option><option value="7">Capo fret 7</option><option value="8">Capo fret 8</option><option value="9">Capo fret 9</option></select>
+  <label>Chord + lirik <button id="paste" type="button" style="padding:2px 10px;margin-left:6px">📋 Paste</button></label><textarea id="f-text" placeholder="Paste chord di sini"></textarea>
+  <label>🥁 Strumming / gejrengan (opsional)</label>
+  <div class="tools2"><button type="button" id="spaste">📋 Paste</button><button type="button" id="sfile">📷 Pilih gambar</button><button type="button" class="ar" data-a="↓">↓</button><button type="button" class="ar" data-a="↑">↑</button><button type="button" class="ar" data-a="✕">✕</button></div>
+  <input type="file" id="sfilein" accept="image/*" hidden>
+  <div id="simg"></div>
+  <textarea id="f-strum" style="min-height:60px" placeholder="Boleh paste gambar strumming (Ctrl+V), atau ketik: ↓ ↓↑ ↑↓↑"></textarea>
+  <div class="row"><button id="cancel">Batal</button><button class="p" id="save">Simpan</button></div>
+</dialog>
+
+<script>
+const KEY='chordlib_v1',$=id=>document.getElementById(id);
+let songs=load(),cur=null,tr=0,simp=false,editId=null;
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(songs))}catch(e){alert('Gagal menyimpan. Coba pakai Backup.')}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
+
+const PRESET=['Pop','Rock','Indie','R&B','Jazz','Acoustic','Ballad','Folk','K-Pop','Dangdut','Soundtrack'];
+const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(Boolean):[]);
+const allGenres=()=>[...new Set([...PRESET,...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
+let fg=new Set(),fGenres=[],fImg='',favOnly=false;
+/* ---- chord logic ---- */
+const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const CH=/^([A-G][#b]?)((?:maj|min|m|M|dim|aug|sus|add|\+|-|\(|\)|#|b|\d|o|°)*)(?:\/([A-G][#b]?))?$/;
+const OPEN=new Set(['C','D','E','G','A','Am','Dm','Em']);
+const name=i=>NAMES[((i%12)+12)%12];
+function conv(tok,t,s){
+  const m=CH.exec(tok);if(!m||IDX[m[1]]===undefined)return tok;
+  let q=m[2];if(s)q=/^(m(?!aj)|min|dim)/.test(q)?'m':'';
+  let o=name(IDX[m[1]]+t)+q;
+  if(!s&&m[3]&&IDX[m[3]]!==undefined)o+='/'+name(IDX[m[3]]+t);
+  return o;
+}
+function isChordLine(l){
+  const tk=l.trim().split(/\s+/).filter(x=>x&&!/^(\||x\d+|\/|-|\.\.\.)$/i.test(x));
+  return tk.length>0&&tk.every(x=>CH.test(x)&&IDX[CH.exec(x)[1]]!==undefined);
+}
+function convLine(l,t,s){
+  return l.replace(/(\S+)(\s*)/g,(a,tok,sp)=>{
+    const n=conv(tok,t,s);if(!sp)return n;
+    const d=tok.length-n.length;
+    return n+(d>0?sp+' '.repeat(d):sp.slice(0,Math.max(1,sp.length+d)));
+  });
+}
+function chordsOf(text){const o=[];text.split('\n').forEach(l=>{if(isChordLine(l))l.trim().split(/\s+/).forEach(x=>{if(CH.test(x))o.push(x)})});return o}
+function bestCapo(text,base){
+  const cs=chordsOf(text);let best=0,bs=-1;
+  for(let c=0;c<=7;c++){const sc=cs.filter(x=>OPEN.has(conv(x,base-c,true))).length;if(sc>bs){bs=sc;best=c}}
+  return best;
+}
+
+/* ---- home list ---- */
+function render(){
+  const used=[...new Set(songs.flatMap(G))].sort((a,b)=>a.localeCompare(b));
+  fg=new Set([...fg].filter(x=>used.includes(x)));
+  $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button>`+(used.length?`<button data-g="" class="${fg.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
+  const q=$('q').value.toLowerCase(),so=$('sort').value;
+  const az=(a,b)=>a.title.localeCompare(b.title);
+  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(+x.rating||0)>=+$('rf').value&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
+  const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
+  let h='';
+  if(so==='genre'){
+    const grp={};
+    l.sort(az).forEach(x=>{(G(x).length?G(x):['Lainnya']).forEach(g=>{if(!fg.size||fg.has(g))(grp[g]=grp[g]||[]).push(x)})});
+    Object.keys(grp).sort().forEach(g=>{h+=`<div class="gh">${esc(g)}</div>`+grp[g].map(card).join('')});
+  }else{
+    if(so==='new')l.sort((a,b)=>b.created-a.created);else if(so==='rate')l.sort((a,b)=>(b.rating||0)-(a.rating||0)||az(a,b));else l.sort(az);
+    h=l.map(card).join('');
+  }
+  $('list').innerHTML=h||'<div class="empty" style="grid-column:1/-1">🎸<br>Belum ada lagu. Klik “+ Lagu” untuk mulai.</div>';
+}
+
+/* ---- song page ---- */
+function show(){
+  const k0=cur.capo||0;
+  let sh=tr,capo=k0;
+  if(simp){capo=bestCapo(cur.text,k0+tr);sh=k0+tr-capo}
+  const lines=cur.text.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp))}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
+  const uniq=[...new Set(chordsOf(cur.text).map(x=>conv(x,sh,simp)))];
+  const t=tr>0?'+'+tr:tr;
+  $('view').innerHTML=`<h2>${esc(cur.title)}</h2><div class="mut">${esc(cur.artist||'')}${G(cur).length?' · '+esc(G(cur).join(', ')):''}</div>
+  <div class="tools"><button id="favb">${cur.fav?'⭐ Favorit':'☆ Favorit'}</button><span class="rate">${[1,2,3,4,5].map(i=>`<span class="st" data-r="${i}">${i<=(cur.rating||0)?'★':'☆'}</span>`).join('')}</span></div>
+  <div class="tools"><button id="tdn">−</button><b>${t} semitone</b><button id="tup">+</button>
+    <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button></div>
+  <div class="mut">🎸 ${capo>0?'<b>Capo fret '+capo+'</b>':'Tanpa capo'}${simp?' · chord disederhanakan, bunyi tetap sama':''}</div>
+  <div class="chips">${uniq.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+  ${(cur.strum||cur.strumImg)?`<div class="box"><b>🥁 Strumming</b>${cur.strumImg?`<img src="${cur.strumImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px">`:''}${cur.strum?`<pre>${esc(cur.strum)}</pre>`:''}</div>`:''}
+  <div class="tools">${cur.link?`<a href="${esc(cur.link)}" target="_blank" rel="noopener">🔗 Buka di Ultimate Guitar</a>`:''}
+    <button id="ed" class="p">✏️ Edit</button><button id="del">🗑 Hapus</button></div>
+  <pre>${lines}</pre>`;
+}
+function route(){
+  const m=location.hash.match(/s=(\d+)/),s=m&&songs.find(x=>x.id===m[1]);
+  if(s){
+    if(!cur||cur.id!==s.id){tr=0;simp=false}
+    cur=s;$('home').hidden=true;$('page').hidden=false;$('asbar').hidden=false;asPause();show();scrollTo(0,0);
+  }else{cur=null;asPause();$('asbar').hidden=true;$('home').hidden=false;$('page').hidden=true;render()}
+}
+function go(id){const h=id?'#s='+id:'#';if(location.hash===h)route();else location.hash=h}
+addEventListener('hashchange',route);
+
+/* ---- events ---- */
+$('list').onclick=e=>{const f=e.target.closest('.fv');if(f){const x=songs.find(t=>t.id===f.dataset.f);x.fav=!x.fav;persist();render();return}const it=e.target.closest('.it');if(it)go(it.dataset.id)};
+['q','sort','rf'].forEach(i=>$(i).oninput=render);
+$('gchips').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='favf'){favOnly=!favOnly;render();return}const g=b.dataset.g;if(!g){fg.clear();favOnly=false}else if(fg.has(g))fg.delete(g);else fg.add(g);render()};
+$('back').onclick=()=>go('');
+$('view').onclick=e=>{
+  const st=e.target.closest('.st');if(st&&cur){const r=+st.dataset.r;cur.rating=cur.rating===r?0:r;persist();show();return}
+  const id=e.target.id;if(!id||!cur)return;
+  if(id==='tup'){tr++}else if(id==='tdn'){tr--}
+  else if(id==='sm'){simp=!simp}
+  else if(id==='rst'){tr=0;simp=false}
+  else if(id==='favb'){cur.fav=!cur.fav;persist()}
+  else if(id==='ed'){openForm(cur)}
+  else if(id==='del'){if(confirm('Hapus lagu ini?')){songs=songs.filter(s=>s.id!==cur.id);persist();go('')}return}
+  else return;
+  show();
+};
+function openForm(s){
+  editId=s?s.id:null;$('dt').textContent=s?'Edit lagu':'Tambah lagu';
+  const d=s||{};
+  $('f-title').value=d.title||'';$('f-artist').value=d.artist||'';$('f-link').value=d.link||'';$('f-text').value=d.text||'';
+  $('f-capo').value=d.capo||0;$('f-strum').value=d.strum||'';$('gnew').value='';
+  fGenres=s?[...G(s)]:[];renderG();setImg(d.strumImg||'');
+  $('dlg').showModal();
+}
+function cap(x){return x.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+function fromLink(u){
+  try{
+    const p=new URL(u).pathname.split('/').filter(Boolean),i=p.indexOf('tab');
+    if(i<0||p.length<i+3)return null;
+    let t=p[i+2].replace(/-\d+$/,'');
+    for(let k=0;k<3;k++)t=t.replace(/-(chords|tabs|ukulele|bass|official|pro|power|guitar|ver\d*)$/i,'');
+    return{artist:cap(p[i+1]),title:cap(t)};
+  }catch(e){return null}
+}
+$('f-link').oninput=()=>{
+  const r=fromLink($('f-link').value.trim());if(!r)return;
+  if(!$('f-title').value.trim())$('f-title').value=r.title;
+  if(!$('f-artist').value.trim())$('f-artist').value=r.artist;
+};
+function detectCapo(){
+  const m=$('f-text').value.match(/capo\W{0,3}(?:on\W+)?(\d{1,2})/i);
+  if(m&&+m[1]>=1&&+m[1]<=9&&$('f-capo').value==='0')$('f-capo').value=m[1];
+}
+function ins(el,t){el.setRangeText(t,el.selectionStart,el.selectionEnd,'end');el.focus()}
+async function pasteAny(el,img){
+  try{
+    if(navigator.clipboard.read){
+      const items=await navigator.clipboard.read();
+      if(img)for(const it of items){const ty=it.types.find(t=>t.startsWith('image/'));if(ty){loadImg(await it.getType(ty));return}}
+      for(const it of items)if(it.types.includes('text/plain')){ins(el,await(await it.getType('text/plain')).text());return}
+      return;
+    }
+    ins(el,await navigator.clipboard.readText());
+  }catch(e){alert('Browser belum kasih akses clipboard. Klik kotaknya lalu tekan Ctrl+V (di HP: tahan lalu pilih Paste).')}
+}
+$('paste').onclick=async()=>{await pasteAny($('f-text'),false);detectCapo()};
+$('f-text').addEventListener('paste',()=>setTimeout(detectCapo,0));
+/* strumming */
+function setImg(src){
+  fImg=src;
+  $('simg').innerHTML=src?`<div style="position:relative;display:inline-block;margin:4px 0;max-width:100%"><img src="${src}" style="max-width:100%;border-radius:10px;border:1px solid var(--bd)"><button type="button" id="simgdel" style="position:absolute;top:4px;right:4px;padding:0 8px">✕</button></div>`:'';
+}
+function loadImg(blob){
+  const r=new FileReader();
+  r.onload=()=>{const im=new Image();im.onload=()=>{
+    const k=Math.min(1,700/im.width),c=document.createElement('canvas');
+    c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+    setImg(c.toDataURL('image/jpeg',.85));
+  };im.src=r.result};
+  r.readAsDataURL(blob);
+}
+$('simg').onclick=e=>{if(e.target.id==='simgdel')setImg('')};
+$('spaste').onclick=()=>pasteAny($('f-strum'),true);
+$('sfile').onclick=()=>$('sfilein').click();
+$('sfilein').onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0]);e.target.value=''};
+$('f-strum').addEventListener('paste',e=>{
+  const f=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith('image/'));
+  if(f){e.preventDefault();loadImg(f.getAsFile())}
+});
+document.querySelectorAll('.ar').forEach(b=>b.onclick=()=>ins($('f-strum'),b.dataset.a+' '));
+/* genre */
+function renderG(){
+  $('gsel').innerHTML=fGenres.map(g=>`<span class="tag" data-g="${esc(g)}">${esc(g)} ✕</span>`).join('')||'<span class="mut">Belum ada genre</span>';
+  $('gpick').innerHTML='<option value="">Pilih genre ▾</option>'+allGenres().filter(g=>!fGenres.includes(g)).map(g=>`<option>${esc(g)}</option>`).join('');
+}
+function addG(g){g=g.trim();if(g&&!fGenres.some(x=>x.toLowerCase()===g.toLowerCase()))fGenres.push(g);renderG()}
+$('gpick').onchange=()=>addG($('gpick').value);
+$('gadd').onclick=()=>{addG($('gnew').value);$('gnew').value=''};
+$('gnew').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('gadd').click()}};
+$('gsel').onclick=e=>{const t=e.target.closest('.tag');if(t){fGenres=fGenres.filter(x=>x!==t.dataset.g);renderG()}};
+$('add').onclick=()=>openForm(null);
+$('cancel').onclick=()=>$('dlg').close();
+$('save').onclick=()=>{
+  const title=$('f-title').value.trim();
+  if(!title){alert('Judul wajib diisi');return}
+  addG($('gnew').value);$('gnew').value='';
+  const d={title,artist:$('f-artist').value.trim(),genres:[...fGenres],genre:fGenres.join(', '),link:$('f-link').value.trim(),
+    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,
+    strum:$('f-strum').value.replace(/\r/g,''),strumImg:fImg};
+  let id=editId;
+  if(id){Object.assign(songs.find(x=>x.id===id),d)}
+  else{id=String(Date.now());songs.push({id,created:Date.now(),...d})}
+  persist();$('dlg').close();toast('Tersimpan 💗');go(id);
+};
+$('exp').onclick=()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(songs,null,1)],{type:'application/json'}));
+  a.download='chord-library-backup.json';a.click();
+};
+$('imp').onclick=()=>$('file').click();
+$('file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  f.text().then(t=>{
+    try{
+      const arr=JSON.parse(t);if(!Array.isArray(arr))throw 0;
+      const have=new Set(songs.map(s=>s.id));
+      arr.forEach(s=>{if(s&&s.title&&!have.has(s.id))songs.push(s)});
+      persist();route();toast('Restore selesai');
+    }catch(err){alert('File tidak valid')}
+  });
+  e.target.value='';
+};
+
+/* ---- auto-scroll ---- */
+let asOn=false,asPos=0,asLast=0,asRaf=0,asLvl=4;
+try{asLvl=+localStorage.getItem('chordlib_speed')||4}catch(e){}
+$('asspd').value=asLvl;$('aslbl').textContent=asLvl;
+function asStep(t){
+  if(!asOn)return;
+  const dt=Math.min(100,t-asLast)/1000;asLast=t;
+  if(Math.abs(scrollY-asPos)>3)asPos=scrollY;
+  asPos+=(6+asLvl*6)*dt;scrollTo(0,asPos);
+  if(innerHeight+scrollY>=document.documentElement.scrollHeight-2){asPause();return}
+  asRaf=requestAnimationFrame(asStep);
+}
+function asPlay(){asOn=true;asPos=scrollY;asLast=performance.now();$('asplay').textContent='⏸ Stop';cancelAnimationFrame(asRaf);asRaf=requestAnimationFrame(asStep)}
+function asPause(){asOn=false;cancelAnimationFrame(asRaf);$('asplay').textContent='▶ Auto-scroll'}
+$('asplay').onclick=()=>asOn?asPause():asPlay();
+$('asspd').oninput=()=>{asLvl=+$('asspd').value;$('aslbl').textContent=asLvl;try{localStorage.setItem('chordlib_speed',asLvl)}catch(e){}};
+$('astop').onclick=()=>{asPause();scrollTo({top:0,behavior:'smooth'})};
+addEventListener('wheel',()=>{if(asOn)asPause()},{passive:true});
+addEventListener('touchstart',e=>{if(asOn&&!e.target.closest('#asbar'))asPause()},{passive:true});
+route();
+</script>
+</body>
+</html>
