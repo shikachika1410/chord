@@ -70,6 +70,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   </section>
   <section id="page" hidden>
     <button id="back">← Semua lagu</button>
+    <div id="musicbox" class="box" hidden></div>
     <div class="view" id="view"></div>
   </section>
 </main>
@@ -79,6 +80,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 <dialog id="dlg">
   <h3 id="dt" style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">Tambah lagu</h3>
   <label>Link Ultimate Guitar (judul &amp; artis terisi otomatis)</label><input id="f-link" placeholder="https://tabs.ultimate-guitar.com/...">
+  <label>🎵 Link musik (YouTube / Spotify, opsional)</label><input id="f-music" placeholder="https://youtu.be/... atau open.spotify.com/track/...">
   <label>Judul</label><input id="f-title">
   <label>Artis</label><input id="f-artist">
   <label>Genre (bisa lebih dari satu)</label>
@@ -181,8 +183,8 @@ function route(){
   const m=location.hash.match(/s=(\d+)/),s=m&&songs.find(x=>x.id===m[1]);
   if(s){
     if(!cur||cur.id!==s.id){tr=0;simp=false}
-    cur=s;$('home').hidden=true;$('page').hidden=false;$('asbar').hidden=false;asPause();show();scrollTo(0,0);
-  }else{cur=null;asPause();$('asbar').hidden=true;$('home').hidden=false;$('page').hidden=true;render()}
+    cur=s;$('home').hidden=true;$('page').hidden=false;$('asbar').hidden=false;asPause();show();renderMusic();scrollTo(0,0);
+  }else{cur=null;renderMusic();asPause();$('asbar').hidden=true;$('home').hidden=false;$('page').hidden=true;render()}
 }
 function go(id){const h=id?'#s='+id:'#';if(location.hash===h)route();else location.hash=h}
 addEventListener('hashchange',route);
@@ -208,7 +210,7 @@ function openForm(s){
   editId=s?s.id:null;$('dt').textContent=s?'Edit lagu':'Tambah lagu';
   const d=s||{};
   $('f-title').value=d.title||'';$('f-artist').value=d.artist||'';$('f-link').value=d.link||'';$('f-text').value=d.text||'';
-  $('f-capo').value=d.capo||0;$('f-strum').value=d.strum||'';$('gnew').value='';
+  $('f-capo').value=d.capo||0;$('f-music').value=d.music||'';$('f-strum').value=d.strum||'';$('gnew').value='';
   fGenres=s?[...G(s)]:[];renderG();setImg(d.strumImg||'');
   $('dlg').showModal();
 }
@@ -286,7 +288,7 @@ $('save').onclick=()=>{
   if(!title){alert('Judul wajib diisi');return}
   addG($('gnew').value);$('gnew').value='';
   const d={title,artist:$('f-artist').value.trim(),genres:[...fGenres],genre:fGenres.join(', '),link:$('f-link').value.trim(),
-    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,
+    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,music:$('f-music').value.trim(),
     strum:$('f-strum').value.replace(/\r/g,''),strumImg:fImg};
   let id=editId;
   if(id){Object.assign(songs.find(x=>x.id===id),d)}
@@ -312,6 +314,36 @@ $('file').onchange=e=>{
   e.target.value='';
 };
 
+/* ---- music player ---- */
+let musicFor=null;
+function embedOf(u){
+  try{
+    const x=new URL(u),h=x.hostname.replace(/^www\.|^m\.|^music\./,'');
+    let id='';
+    if(h==='youtu.be')id=x.pathname.slice(1);
+    else if(h==='youtube.com')id=x.searchParams.get('v')||(x.pathname.match(/\/(?:shorts|embed|live)\/([\w-]+)/)||[])[1]||'';
+    if(id)return{src:`https://www.youtube.com/embed/${id}?playsinline=1&rel=0`,h:200};
+    if(h==='open.spotify.com'){const m=x.pathname.match(/\/(track|album|playlist|episode)\/(\w+)/);if(m)return{src:`https://open.spotify.com/embed/${m[1]}/${m[2]}`,h:152}}
+  }catch(e){}
+  return null;
+}
+function renderMusic(){
+  const box=$('musicbox');
+  if(!cur||!cur.music){box.hidden=true;box.innerHTML='';musicFor=null;return}
+  const key=cur.id+'|'+cur.music;
+  if(musicFor===key)return;
+  musicFor=key;box.hidden=false;
+  box.innerHTML=`<div class="tools" style="margin:0"><button id="mtog">🎵 Putar musik</button><a href="${esc(cur.music)}" target="_blank" rel="noopener">Buka di app / tab baru ↗</a></div><div id="mplay"></div>`;
+}
+$('musicbox').onclick=e=>{
+  if(e.target.id!=='mtog')return;
+  const pl=$('mplay');
+  if(pl.innerHTML){pl.innerHTML='';e.target.textContent='🎵 Putar musik';return}
+  const em=embedOf(cur.music);
+  if(!em){window.open(cur.music,'_blank');return}
+  pl.innerHTML=`<iframe src="${em.src}" width="100%" height="${em.h}" style="border:0;border-radius:12px;margin-top:8px" allow="autoplay; encrypted-media; picture-in-picture; clipboard-write" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+  e.target.textContent='⏹ Tutup player';
+};
 /* ---- auto-scroll ---- */
 let asOn=false,asPos=0,asLast=0,asRaf=0,asLvl=4;
 try{asLvl=+localStorage.getItem('chordlib_speed')||4}catch(e){}
