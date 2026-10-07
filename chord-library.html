@@ -55,6 +55,9 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #asbar{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
 #sync{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
+.ck{cursor:pointer;border-radius:4px}pre .ck:hover{background:#82b8ff44}
+#tip{position:fixed;z-index:20;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px 10px 4px;box-shadow:0 8px 24px #82b8ff77;pointer-events:none;text-align:center}
+#tip b{display:block}#tip svg{display:block;margin:2px auto}
 </style>
 </head>
 <body>
@@ -82,6 +85,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   </section>
 </main>
 <div id="asbar" hidden><button id="asplay" class="p">▶ Auto-scroll</button><span>🐢</span><input type="range" id="asspd" min="1" max="10" value="4"><span>🐇</span><b id="aslbl">4</b><button id="astop" title="Ke atas">⬆</button></div>
+<div id="tip" hidden></div>
 <div id="toast"></div>
 
 <dialog id="dlg">
@@ -207,7 +211,7 @@ function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';set
 const PRESET=['Pop','Rock','Indie','R&B','Jazz','Acoustic','Ballad','Folk','K-Pop','Dangdut','Soundtrack'];
 const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(Boolean):[]);
 const allGenres=()=>[...new Set([...PRESET,...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
-let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g';
+let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g',instF=new Set();
 /* ---- chord logic ---- */
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
 const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
@@ -243,11 +247,11 @@ function bestCapo(text,base){
 function render(){
   const used=[...new Set(songs.flatMap(G))].sort((a,b)=>a.localeCompare(b));
   fg=new Set([...fg].filter(x=>used.includes(x)));
-  $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button>`+(used.length?`<button data-g="" class="${fg.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
+  $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button><button id="fgt" class="${instF.has('g')?'on':''}">🎸 Gitar</button><button id="fpn" class="${instF.has('p')?'on':''}">🎹 Piano</button>`+(used.length?`<button data-g="" class="${fg.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
   const q=$('q').value.toLowerCase(),so=$('sort').value;
   const az=(a,b)=>a.title.localeCompare(b.title);
-  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(+x.rating||0)>=+$('rf').value&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
-  const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
+  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&(+x.rating||0)>=+$('rf').value&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
+  const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
   let h='';
   if(so==='genre'){
     const grp={};
@@ -316,19 +320,19 @@ function keys(tok){
 }
 /* ---- song page ---- */
 function show(){
+  $('tip').hidden=true;
   const P=inst==='p',T=P?(cur.piano||''):cur.text,k0=cur.capo||0;
   let sh=tr,capo=k0;
   if(simp&&!P){capo=bestCapo(T,k0+tr);sh=k0+tr-capo}
-  const lines=T.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp))}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
+  const lines=T.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp)).replace(/(\S+)/g,'<span class="ck" data-c="$1">$1</span>')}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
   const uniq=[...new Set(chordsOf(T).map(x=>conv(x,sh,simp)))];
   const t=tr>0?'+'+tr:tr;
   $('view').innerHTML=`<h2>${esc(cur.title)}</h2><div class="mut">${esc(cur.artist||'')}${G(cur).length?' · '+esc(G(cur).join(', ')):''}</div>
   <div class="tools"><button id="favb">${cur.fav?'⭐ Favorit':'☆ Favorit'}</button><span class="rate">${[1,2,3,4,5].map(i=>`<span class="st" data-r="${i}">${i<=(cur.rating||0)?'★':'☆'}</span>`).join('')}</span></div>
   <div class="tools"><button id="tdn">−</button><b>${t} semitone</b><button id="tup">+</button>
-    <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button><button id="inst">${P?'🎸 Gitar':'🎹 Piano'}</button><button id="dg" class="${showDg?'on':''}">${P?'🎹 Posisi tuts':'🎸 Posisi jari'}</button></div>
+    <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button><button id="inst">${P?'🎸 Gitar':'🎹 Piano'}</button></div>
   ${P?`<div class="mut">🎹 Chord piano${simp?' · disederhanakan':''}</div>`:`<div class="mut">🎸 ${capo>0?'<b>Capo fret '+capo+'</b>':'Tanpa capo'}${simp?' · chord disederhanakan, bunyi tetap sama':''}</div>`}
-  <div class="chips">${uniq.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-  ${showDg?`<div class="dgs">${uniq.map(x=>{if(P)return `<div class="dg"><b>${esc(x)}</b>${keys(x)}</div>`;const r=shapeOf(x);return r?`<div class="dg"><b>${esc(x)}</b>${diagram(r.fr)}${r.approx?'<small class="mut">≈ disederhanakan</small>':''}</div>`:''}).join('')}</div>`:''}
+  <div class="chips">${uniq.map(x=>`<span class="ck" data-c="${esc(x)}">${esc(x)}</span>`).join('')}</div>
   ${(!P&&(cur.strum||cur.strumImg))?`<div class="box"><b>🥁 Strumming</b>${cur.strumImg?`<img src="${cur.strumImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px">`:''}${cur.strum?`<pre>${esc(cur.strum)}</pre>`:''}</div>`:''}
   <div class="tools">${cur.link?`<a href="${esc(cur.link)}" target="_blank" rel="noopener">🔗 Buka di Ultimate Guitar</a>`:''}
     <button id="ed" class="p">✏️ Edit</button><button id="del">🗑 Hapus</button></div>
@@ -347,7 +351,7 @@ addEventListener('hashchange',route);
 /* ---- events ---- */
 $('list').onclick=e=>{const f=e.target.closest('.fv');if(f){const x=songs.find(t=>t.id===f.dataset.f);x.fav=!x.fav;persist();render();return}const it=e.target.closest('.it');if(it)go(it.dataset.id)};
 ['q','sort','rf'].forEach(i=>$(i).oninput=render);
-$('gchips').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='favf'){favOnly=!favOnly;render();return}const g=b.dataset.g;if(!g){fg.clear();favOnly=false}else if(fg.has(g))fg.delete(g);else fg.add(g);render()};
+$('gchips').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='favf'){favOnly=!favOnly;render();return}if(b.id==='fgt'||b.id==='fpn'){const k=b.id==='fgt'?'g':'p';if(instF.has(k))instF.delete(k);else instF.add(k);render();return}const g=b.dataset.g;if(!g){fg.clear();favOnly=false;instF.clear()}else if(fg.has(g))fg.delete(g);else fg.add(g);render()};
 $('back').onclick=()=>go('');
 $('view').onclick=e=>{
   const st=e.target.closest('.st');if(st&&cur){const r=+st.dataset.r;cur.rating=cur.rating===r?0:r;persist();show();return}
@@ -356,7 +360,6 @@ $('view').onclick=e=>{
   else if(id==='sm'){simp=!simp}
   else if(id==='rst'){tr=0;simp=false}
   else if(id==='favb'){cur.fav=!cur.fav;persist()}
-  else if(id==='dg'){showDg=!showDg}
   else if(id==='inst'){inst=inst==='p'?'g':'p'}
   else if(id==='ed'){openForm(cur)}
   else if(id==='del'){if(confirm('Hapus lagu ini?')){songs=songs.filter(s=>s.id!==cur.id);persist();go('')}return}
@@ -523,6 +526,21 @@ $('asspd').oninput=()=>{asLvl=+$('asspd').value;$('aslbl').textContent=asLvl;try
 $('astop').onclick=()=>{asPause();scrollTo({top:0,behavior:'smooth'})};
 addEventListener('wheel',()=>{if(asOn)asPause()},{passive:true});
 addEventListener('touchstart',e=>{if(asOn&&!e.target.closest('#asbar'))asPause()},{passive:true});
+/* ---- chord tooltip (hover on desktop, tap on phone) ---- */
+function showTip(el){
+  const c=el.dataset.c,tp=$('tip');let h='';
+  if(inst==='p')h=keys(c);
+  else{const r=shapeOf(c);if(r)h=diagram(r.fr)+(r.approx?'<small class="mut">≈ disederhanakan</small>':'')}
+  if(!h){tp.hidden=true;return}
+  tp.innerHTML=`<b style="color:var(--ch)">${esc(c)}</b>${h}`;tp.hidden=false;
+  const r=el.getBoundingClientRect(),w=tp.offsetWidth,hh=tp.offsetHeight;
+  tp.style.left=Math.min(Math.max(8,r.left+r.width/2-w/2),innerWidth-w-8)+'px';
+  tp.style.top=(r.top-hh-8<8?r.bottom+8:r.top-hh-8)+'px';
+}
+$('page').addEventListener('mouseover',e=>{const el=e.target.closest('.ck');if(el&&matchMedia('(hover:hover)').matches)showTip(el)});
+$('page').addEventListener('mouseout',e=>{if(e.target.closest('.ck'))$('tip').hidden=true});
+$('page').addEventListener('click',e=>{const el=e.target.closest('.ck');if(el)showTip(el);else $('tip').hidden=true});
+addEventListener('scroll',()=>{if(!asOn)$('tip').hidden=true},{passive:true});
 route();
 initSync();
 </script>
