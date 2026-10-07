@@ -334,15 +334,17 @@ function renderMusic(){
   if(musicFor===key)return;
   musicFor=key;box.hidden=false;
   box.innerHTML=`<div class="tools" style="margin:0"><button id="mtog">🎵 Putar musik</button><a href="${esc(cur.music)}" target="_blank" rel="noopener">Buka di app / tab baru ↗</a></div><div id="mplay"></div>`;
+  openMusic();
+}
+function openMusic(){
+  const em=embedOf(cur.music);if(!em)return false;
+  $('mplay').innerHTML=`<iframe src="${em.src}" width="100%" height="${em.h}" style="border:0;border-radius:12px;margin-top:8px" allow="autoplay; encrypted-media; picture-in-picture; clipboard-write" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+  $('mtog').textContent='⏹ Tutup player';return true;
 }
 $('musicbox').onclick=e=>{
   if(e.target.id!=='mtog')return;
-  const pl=$('mplay');
-  if(pl.innerHTML){pl.innerHTML='';e.target.textContent='🎵 Putar musik';return}
-  const em=embedOf(cur.music);
-  if(!em){window.open(cur.music,'_blank');return}
-  pl.innerHTML=`<iframe src="${em.src}" width="100%" height="${em.h}" style="border:0;border-radius:12px;margin-top:8px" allow="autoplay; encrypted-media; picture-in-picture; clipboard-write" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
-  e.target.textContent='⏹ Tutup player';
+  if($('mplay').innerHTML){$('mplay').innerHTML='';e.target.textContent='🎵 Buka player';return}
+  if(!openMusic())window.open(cur.music,'_blank');
 };
 /* ---- auto-scroll ---- */
 let asOn=false,asPos=0,asLast=0,asRaf=0,asLvl=4;
