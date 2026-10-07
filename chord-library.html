@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chord Library 🎸</title>
 <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -49,11 +49,18 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 .st{font-size:28px;cursor:pointer;color:#f5b301;margin-right:2px;user-select:none}.rate{margin-left:6px}
 #asbar{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:var(--card);border:1px solid var(--bd);border-radius:30px;padding:8px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 22px #82b8ff66;z-index:5;max-width:94vw}
 #asbar input[type=range]{width:110px;padding:0;accent-color:var(--ac)}
+.dgs{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.dg{background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:6px 10px 4px;text-align:center}
+.dg b{display:block;color:var(--ch)}.dg svg{display:block;margin:2px auto}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#asbar{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+#sync{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
 </style>
 </head>
 <body>
 <header>
   <h1><svg viewBox="0 0 64 64" width="38" height="38"><g transform="rotate(45 32 32)" fill="#fff"><rect x="29" y="2" width="6" height="30" rx="2"/><rect x="27" y="0" width="10" height="9" rx="3"/><ellipse cx="32" cy="40" rx="13" ry="10"/><ellipse cx="32" cy="53" rx="16" ry="11"/><circle cx="32" cy="46" r="5" fill="#f472b6"/></g></svg>Chord Library</h1>
+  <span id="sync" title="">⏳</span>
   <button id="exp">⬇ Backup</button><button id="imp">⬆ Restore</button>
   <input type="file" id="file" accept=".json" hidden>
   <button class="p" id="add">+ Lagu</button>
@@ -62,7 +69,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <section id="home">
     <div class="bar">
       <input id="q" placeholder="🔍 Cari judul / artis / genre…">
-      <select id="sort"><option value="az">A–Z</option><option value="genre">Per genre</option><option value="new">Terbaru</option><option value="rate">Rating tertinggi</option></select>
+      <select id="sort"><option value="az">A–Z</option><option value="genre">Per genre</option><option value="artist">Per artis</option><option value="new">Terbaru</option><option value="rate">Rating tertinggi</option></select>
       <select id="rf"><option value="0">Semua rating</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select>
     </div>
     <div class="gchips" id="gchips"></div>
@@ -93,21 +100,114 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <input type="file" id="sfilein" accept="image/*" hidden>
   <div id="simg"></div>
   <textarea id="f-strum" style="min-height:60px" placeholder="Boleh paste gambar strumming (Ctrl+V), atau ketik: ↓ ↓↑ ↑↓↑"></textarea>
+  <label>🎹 Chord piano (opsional, paste terpisah) <button id="ppaste" type="button" style="padding:2px 10px;margin-left:6px">📋 Paste</button></label>
+  <textarea id="f-piano" style="min-height:110px" placeholder="Paste chord versi piano di sini"></textarea>
   <div class="row"><button id="cancel">Batal</button><button class="p" id="save">Simpan</button></div>
+</dialog>
+
+<dialog id="dlg3">
+  <h3 style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">☁ Sync lewat GitHub</h3>
+  <p class="mut">Semua lagu disimpan sebagai 1 file JSON di repo GitHub kamu. Disarankan repo <b>private</b>, terpisah dari repo halaman ini. Isi sekali di tiap perangkat.</p>
+  <label>Repo data (username/nama-repo)</label><input id="g-repo" placeholder="username/chord-data">
+  <label>Nama file</label><input id="g-path" placeholder="chord-library.json">
+  <label>Branch (kosongkan = branch utama)</label><input id="g-branch">
+  <label>Token GitHub</label><input id="g-token" type="password" autocomplete="off">
+  <p class="mut">Buat di GitHub → Settings → Developer settings → Fine-grained tokens. Pilih <b>hanya repo data itu</b>, izin <b>Contents: Read and write</b>. Token hanya disimpan di browser perangkat ini.</p>
+  <div class="row"><button id="g-off">Putuskan</button><button id="g-close">Tutup</button><button class="p" id="g-save">Simpan &amp; sync</button></div>
 </dialog>
 
 <script>
 const KEY='chordlib_v1',$=id=>document.getElementById(id);
 let songs=load(),cur=null,tr=0,simp=false,editId=null;
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(songs))}catch(e){alert('Gagal menyimpan. Coba pakai Backup.')}}
+let gh=null,tomb={},sig={},busy=false,again=false,st=0;
+try{gh=JSON.parse(localStorage.getItem('chordlib_gh'))}catch(e){}
+try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
+songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
+function setSync(k,e){const el=$('sync');el.textContent={ok:'☁ Tersinkron',local:'💾 Lokal saja · klik untuk sync',err:'⚠ Gagal sync · klik',wait:'⏳ Sync…'}[k];el.title=(e&&e.message)||''}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(songs));localStorage.setItem('chordlib_tomb',JSON.stringify(tomb))}catch(e){}}
+function persist(){
+  const now=new Set(songs.map(x=>x.id));
+  songs.forEach(x=>{const j=JSON.stringify({...x,u:0});if(sig[x.id]!==j){sig[x.id]=j;x.u=Date.now();delete tomb[x.id]}});
+  Object.keys(sig).forEach(id=>{if(!now.has(id)){delete sig[id];tomb[id]=Date.now()}});
+  saveLocal();
+  if(gh){if(busy)again=true;else{clearTimeout(st);st=setTimeout(syncNow,1500)}}
+}
+function sigOf(a){return JSON.stringify([...a].sort((x,y)=>x.id<y.id?-1:1))}
+function merge(r){
+  const m=new Map();
+  [...songs,...(r.songs||[])].forEach(x=>{const o=m.get(x.id);if(!o||(x.u||0)>(o.u||0))m.set(x.id,x)});
+  const t={...(r.tomb||{})};
+  Object.keys(tomb).forEach(id=>{if((tomb[id]||0)>(t[id]||0))t[id]=tomb[id]});
+  Object.keys(t).forEach(id=>{const x=m.get(id);if(x&&(x.u||0)<=t[id])m.delete(id)});
+  return{songs:[...m.values()],tomb:t};
+}
+function refresh(){
+  if(!cur&&/s=\d+/.test(location.hash)){route();return}
+  if(cur){const n=songs.find(x=>x.id===cur.id);if(n){cur=n;show();renderMusic()}else go('')}
+  else render();
+}
+/* ---- GitHub file sync ---- */
+const ghUrl=()=>`https://api.github.com/repos/${gh.repo}/contents/${gh.path||'chord-library.json'}`;
+const ghH=()=>({Authorization:'Bearer '+gh.token,Accept:'application/vnd.github+json'});
+const ghErr=r=>Object.assign(new Error({401:'Token salah / kedaluwarsa',403:'Token tidak punya izin',404:'Repo tidak ketemu / token tak punya akses',409:'Konflik',422:'Konflik'}[r.status]||'GitHub error '+r.status),{status:r.status});
+async function ghGet(){
+  const q=(gh.branch?'ref='+encodeURIComponent(gh.branch)+'&':'')+'t='+Date.now();
+  const res=await fetch(ghUrl()+'?'+q,{headers:ghH(),cache:'no-store'});
+  if(res.status===404){const chk=await fetch(`https://api.github.com/repos/${gh.repo}`,{headers:ghH()});if(!chk.ok)throw ghErr(chk);return{data:null,sha:null}}
+  if(!res.ok)throw ghErr(res);
+  const j=await res.json();let txt;
+  if(j.content&&j.encoding==='base64')txt=decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
+  else{const r2=await fetch(ghUrl()+'?'+q,{headers:{...ghH(),Accept:'application/vnd.github.raw+json'},cache:'no-store'});if(!r2.ok)throw ghErr(r2);txt=await r2.text()}
+  let d=null;try{d=JSON.parse(txt)}catch(e){}
+  return{data:Array.isArray(d)?{songs:d,tomb:{}}:d,sha:j.sha};
+}
+async function ghPut(obj,sha){
+  const body={message:'sync chord library',content:btoa(unescape(encodeURIComponent(JSON.stringify(obj)))),...(sha?{sha}:{}),...(gh.branch?{branch:gh.branch}:{})};
+  const res=await fetch(ghUrl(),{method:'PUT',headers:{...ghH(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok)throw ghErr(res);
+}
+async function syncNow(){
+  if(!gh||busy)return;
+  busy=true;setSync('wait');
+  try{
+    for(let k=0;k<3;k++){
+      const r=await ghGet(),m=merge(r.data||{});
+      const chg=sigOf(m.songs)!==sigOf(songs);
+      songs=m.songs;tomb=m.tomb;sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));saveLocal();
+      const same=r.data&&sigOf(r.data.songs||[])===sigOf(songs)&&JSON.stringify(r.data.tomb||{})===JSON.stringify(tomb);
+      if(!same){try{await ghPut({songs,tomb},r.sha)}catch(e){if(e.status===409||e.status===422)continue;throw e}}
+      if(chg)refresh();
+      setSync('ok');break;
+    }
+  }catch(e){setSync('err',e);toast(e.message)}
+  finally{busy=false;if(again){again=false;syncNow()}}
+}
+function initSync(){
+  gh?syncNow():setSync('local');
+  setInterval(()=>{if(!document.hidden)syncNow()},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+  $('sync').onclick=()=>{
+    const c=gh||{};$('g-repo').value=c.repo||'';$('g-path').value=c.path||'';$('g-branch').value=c.branch||'';$('g-token').value=c.token||'';
+    $('dlg3').showModal();
+  };
+  $('g-close').onclick=()=>$('dlg3').close();
+  $('g-off').onclick=()=>{localStorage.removeItem('chordlib_gh');gh=null;$('dlg3').close();setSync('local')};
+  $('g-save').onclick=()=>{
+    const repo=$('g-repo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/$/,''),token=$('g-token').value.trim();
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){alert('Isi repo (username/nama-repo) dan token dulu ya');return}
+    gh={repo,path:$('g-path').value.trim()||'chord-library.json',branch:$('g-branch').value.trim(),token};
+    try{localStorage.setItem('chordlib_gh',JSON.stringify(gh))}catch(e){}
+    $('dlg3').close();syncNow();
+  };
+}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
 
 const PRESET=['Pop','Rock','Indie','R&B','Jazz','Acoustic','Ballad','Folk','K-Pop','Dangdut','Soundtrack'];
 const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(Boolean):[]);
 const allGenres=()=>[...new Set([...PRESET,...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
-let fg=new Set(),fGenres=[],fImg='',favOnly=false;
+let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g';
 /* ---- chord logic ---- */
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
 const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
@@ -153,6 +253,10 @@ function render(){
     const grp={};
     l.sort(az).forEach(x=>{(G(x).length?G(x):['Lainnya']).forEach(g=>{if(!fg.size||fg.has(g))(grp[g]=grp[g]||[]).push(x)})});
     Object.keys(grp).sort().forEach(g=>{h+=`<div class="gh">${esc(g)}</div>`+grp[g].map(card).join('')});
+  }else if(so==='artist'){
+    const grp={};
+    l.sort(az).forEach(x=>{const n=(x.artist||'').trim()||'Tanpa artis',k=n.toLowerCase();(grp[k]=grp[k]||{n,a:[]}).a.push(x)});
+    Object.values(grp).sort((a,b)=>a.n.localeCompare(b.n)).forEach(g=>{h+=`<div class="gh">${esc(g.n)}</div>`+g.a.map(card).join('')});
   }else{
     if(so==='new')l.sort((a,b)=>b.created-a.created);else if(so==='rate')l.sort((a,b)=>(b.rating||0)-(a.rating||0)||az(a,b));else l.sort(az);
     h=l.map(card).join('');
@@ -160,29 +264,80 @@ function render(){
   $('list').innerHTML=h||'<div class="empty" style="grid-column:1/-1">🎸<br>Belum ada lagu. Klik “+ Lagu” untuk mulai.</div>';
 }
 
+/* ---- chord diagrams ---- */
+const OPENS={C:'x32010',D:'xx0232',G:'320003',Dm:'xx0231',C7:'x32310',D7:'xx0212',G7:'320001',Cmaj7:'x32000',Dmaj7:'xx0222',Fmaj7:'xx3210',Gmaj7:'320002',Dsus2:'xx0230',Dsus4:'xx0233',Cadd9:'x32030',Dm7:'xx0211',D6:'xx0202',G6:'320000',Gsus4:'330013',Csus4:'x33011',C6:'x32210'};
+const ES={'':[0,2,2,1,0,0],m:[0,2,2,0,0,0],'7':[0,2,0,1,0,0],m7:[0,2,0,0,0,0],maj7:[0,2,1,1,0,0],sus4:[0,2,2,2,0,0],sus2:[0,2,4,4,0,0],'6':[0,2,2,1,2,0],m6:[0,2,2,0,2,0],add9:[0,2,2,1,0,2],aug:[0,3,2,1,1,0],'9':[0,2,0,1,0,2]};
+const AS={'':[-1,0,2,2,2,0],m:[-1,0,2,2,1,0],'7':[-1,0,2,0,2,0],m7:[-1,0,2,0,1,0],maj7:[-1,0,2,1,2,0],sus4:[-1,0,2,2,3,0],sus2:[-1,0,2,2,0,0],'6':[-1,0,2,2,2,2],m6:[-1,0,2,2,1,2],add9:[-1,0,2,4,2,0],dim:[-1,0,1,2,1,-1],aug:[-1,0,3,2,2,1]};
+const QN={'':'',maj:'',M:'',m:'m',min:'m','-':'m','7':'7',m7:'m7',min7:'m7',maj7:'maj7',M7:'maj7',sus:'sus4',sus4:'sus4',sus2:'sus2','6':'6',m6:'m6',add9:'add9',dim:'dim',dim7:'dim',o:'dim','°':'dim',aug:'aug','+':'aug','9':'9'};
+function shapeOf(tok){
+  const m=CH.exec(tok);if(!m||IDX[m[1]]===undefined)return null;
+  const r=IDX[m[1]];let q=QN[m[2]],approx=false;
+  if(q===undefined){q=/^(m(?!aj)|min|dim)/.test(m[2])?'m':'';approx=true}
+  const key=NAMES[r]+q;
+  if(OPENS[key])return{fr:[...OPENS[key]].map(c=>c==='x'?-1:+c),approx};
+  const c=[];
+  if(ES[q])c.push([(r-4+12)%12,ES[q]]);
+  if(AS[q])c.push([(r-9+12)%12,AS[q]]);
+  c.sort((a,b)=>a[0]-b[0]);
+  const f=c[0][0];
+  return{fr:c[0][1].map(o=>o<0?-1:o+f),approx};
+}
+function diagram(fr){
+  const pos=fr.filter(x=>x>0),mn=pos.length?Math.min(...pos):1,mx=pos.length?Math.max(...pos):1;
+  const st=mx<=4?1:mn,x0=16,dx=11.2,y0=26,dy=16,nf=5;
+  let g=`<svg viewBox="0 0 90 112" width="90" height="112" style="color:var(--tx)">`;
+  for(let j=0;j<=nf;j++){const nut=j===0&&st===1;g+=`<line x1="${x0}" x2="${x0+5*dx}" y1="${y0+j*dy}" y2="${y0+j*dy}" stroke="currentColor" stroke-width="${nut?3:1}" opacity="${nut?1:.35}"/>`}
+  for(let i=0;i<6;i++)g+=`<line x1="${x0+i*dx}" x2="${x0+i*dx}" y1="${y0}" y2="${y0+nf*dy}" stroke="currentColor" opacity=".5"/>`;
+  if(st>1)g+=`<text x="1" y="${y0+dy*.7}" font-size="11" font-weight="700" fill="currentColor">${st}</text>`;
+  const bi=fr.map((f,i)=>f===mn&&mn>0?i:-1).filter(i=>i>=0);
+  if(bi.length&&bi[bi.length-1]-bi[0]>=3)g+=`<rect x="${x0+bi[0]*dx-5.2}" y="${y0+(mn-st+.5)*dy-5.2}" width="${(bi[bi.length-1]-bi[0])*dx+10.4}" height="10.4" rx="5.2" style="fill:var(--ac)"/>`;
+  fr.forEach((f,i)=>{
+    const x=x0+i*dx;
+    if(f===-1)g+=`<text x="${x}" y="${y0-8}" font-size="12" text-anchor="middle" fill="currentColor">×</text>`;
+    else if(f===0)g+=`<circle cx="${x}" cy="${y0-11}" r="3.6" fill="none" stroke="currentColor"/>`;
+    else g+=`<circle cx="${x}" cy="${y0+(f-st+.5)*dy}" r="5.2" style="fill:var(--ac)"/>`;
+  });
+  return g+'</svg>';
+}
+/* ---- piano keys ---- */
+const PI={'':[0,4,7],m:[0,3,7],'7':[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],sus2:[0,2,7],'6':[0,4,7,9],m6:[0,3,7,9],add9:[0,4,7,14],dim:[0,3,6],aug:[0,4,8],'9':[0,4,7,10,14]};
+function keys(tok){
+  const m=CH.exec(tok);if(!m||IDX[m[1]]===undefined)return'';
+  const r=IDX[m[1]];let q=QN[m[2]];
+  if(q===undefined)q=/^(m(?!aj)|min|dim)/.test(m[2])?'m':'';
+  const on=new Set(PI[q].map(i=>{let x=r+i;while(x>=24)x-=12;return x}));
+  let w='',b='';
+  for(let x=0;x<24;x++){
+    const o=Math.floor(x/12),pc=x%12,wi=[0,2,4,5,7,9,11].indexOf(pc);
+    if(wi>=0)w+=`<rect x="${(o*7+wi)*10}" y="0" width="10" height="44" style="fill:${on.has(x)?'var(--ac)':'#fff'};stroke:#b9b3d6"/>`;
+    else{const l=[1,3,6,8,10].indexOf(pc),wl=[0,1,3,4,5][l];b+=`<rect x="${(o*7+wl+1)*10-3}" y="0" width="6" height="27" rx="1" style="fill:${on.has(x)?'var(--ch)':'#4a456e'}"/>`}
+  }
+  return `<svg viewBox="0 0 140 44" width="130" height="41" style="display:block;margin:6px auto">${w}${b}</svg>`;
+}
 /* ---- song page ---- */
 function show(){
-  const k0=cur.capo||0;
+  const P=inst==='p',T=P?(cur.piano||''):cur.text,k0=cur.capo||0;
   let sh=tr,capo=k0;
-  if(simp){capo=bestCapo(cur.text,k0+tr);sh=k0+tr-capo}
-  const lines=cur.text.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp))}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
-  const uniq=[...new Set(chordsOf(cur.text).map(x=>conv(x,sh,simp)))];
+  if(simp&&!P){capo=bestCapo(T,k0+tr);sh=k0+tr-capo}
+  const lines=T.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp))}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
+  const uniq=[...new Set(chordsOf(T).map(x=>conv(x,sh,simp)))];
   const t=tr>0?'+'+tr:tr;
   $('view').innerHTML=`<h2>${esc(cur.title)}</h2><div class="mut">${esc(cur.artist||'')}${G(cur).length?' · '+esc(G(cur).join(', ')):''}</div>
   <div class="tools"><button id="favb">${cur.fav?'⭐ Favorit':'☆ Favorit'}</button><span class="rate">${[1,2,3,4,5].map(i=>`<span class="st" data-r="${i}">${i<=(cur.rating||0)?'★':'☆'}</span>`).join('')}</span></div>
   <div class="tools"><button id="tdn">−</button><b>${t} semitone</b><button id="tup">+</button>
-    <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button></div>
-  <div class="mut">🎸 ${capo>0?'<b>Capo fret '+capo+'</b>':'Tanpa capo'}${simp?' · chord disederhanakan, bunyi tetap sama':''}</div>
+    <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button><button id="inst">${P?'🎸 Gitar':'🎹 Piano'}</button><button id="dg" class="${showDg?'on':''}">${P?'🎹 Posisi tuts':'🎸 Posisi jari'}</button></div>
+  ${P?`<div class="mut">🎹 Chord piano${simp?' · disederhanakan':''}</div>`:`<div class="mut">🎸 ${capo>0?'<b>Capo fret '+capo+'</b>':'Tanpa capo'}${simp?' · chord disederhanakan, bunyi tetap sama':''}</div>`}
   <div class="chips">${uniq.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-  ${(cur.strum||cur.strumImg)?`<div class="box"><b>🥁 Strumming</b>${cur.strumImg?`<img src="${cur.strumImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px">`:''}${cur.strum?`<pre>${esc(cur.strum)}</pre>`:''}</div>`:''}
+  ${showDg?`<div class="dgs">${uniq.map(x=>{if(P)return `<div class="dg"><b>${esc(x)}</b>${keys(x)}</div>`;const r=shapeOf(x);return r?`<div class="dg"><b>${esc(x)}</b>${diagram(r.fr)}${r.approx?'<small class="mut">≈ disederhanakan</small>':''}</div>`:''}).join('')}</div>`:''}
+  ${(!P&&(cur.strum||cur.strumImg))?`<div class="box"><b>🥁 Strumming</b>${cur.strumImg?`<img src="${cur.strumImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px">`:''}${cur.strum?`<pre>${esc(cur.strum)}</pre>`:''}</div>`:''}
   <div class="tools">${cur.link?`<a href="${esc(cur.link)}" target="_blank" rel="noopener">🔗 Buka di Ultimate Guitar</a>`:''}
     <button id="ed" class="p">✏️ Edit</button><button id="del">🗑 Hapus</button></div>
-  <pre>${lines}</pre>`;
+  <pre>${P&&!T.trim()?'Belum ada chord piano. Klik ✏️ Edit lalu paste di kolom Chord piano.':lines}</pre>`;
 }
 function route(){
   const m=location.hash.match(/s=(\d+)/),s=m&&songs.find(x=>x.id===m[1]);
   if(s){
-    if(!cur||cur.id!==s.id){tr=0;simp=false}
+    if(!cur||cur.id!==s.id){tr=0;simp=false;inst='g'}
     cur=s;$('home').hidden=true;$('page').hidden=false;$('asbar').hidden=false;asPause();show();renderMusic();scrollTo(0,0);
   }else{cur=null;renderMusic();asPause();$('asbar').hidden=true;$('home').hidden=false;$('page').hidden=true;render()}
 }
@@ -201,6 +356,8 @@ $('view').onclick=e=>{
   else if(id==='sm'){simp=!simp}
   else if(id==='rst'){tr=0;simp=false}
   else if(id==='favb'){cur.fav=!cur.fav;persist()}
+  else if(id==='dg'){showDg=!showDg}
+  else if(id==='inst'){inst=inst==='p'?'g':'p'}
   else if(id==='ed'){openForm(cur)}
   else if(id==='del'){if(confirm('Hapus lagu ini?')){songs=songs.filter(s=>s.id!==cur.id);persist();go('')}return}
   else return;
@@ -210,7 +367,7 @@ function openForm(s){
   editId=s?s.id:null;$('dt').textContent=s?'Edit lagu':'Tambah lagu';
   const d=s||{};
   $('f-title').value=d.title||'';$('f-artist').value=d.artist||'';$('f-link').value=d.link||'';$('f-text').value=d.text||'';
-  $('f-capo').value=d.capo||0;$('f-music').value=d.music||'';$('f-strum').value=d.strum||'';$('gnew').value='';
+  $('f-capo').value=d.capo||0;$('f-music').value=d.music||'';$('f-piano').value=d.piano||'';$('f-strum').value=d.strum||'';$('gnew').value='';
   fGenres=s?[...G(s)]:[];renderG();setImg(d.strumImg||'');
   $('dlg').showModal();
 }
@@ -264,6 +421,7 @@ function loadImg(blob){
 }
 $('simg').onclick=e=>{if(e.target.id==='simgdel')setImg('')};
 $('spaste').onclick=()=>pasteAny($('f-strum'),true);
+$('ppaste').onclick=()=>pasteAny($('f-piano'),false);
 $('sfile').onclick=()=>$('sfilein').click();
 $('sfilein').onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0]);e.target.value=''};
 $('f-strum').addEventListener('paste',e=>{
@@ -288,7 +446,7 @@ $('save').onclick=()=>{
   if(!title){alert('Judul wajib diisi');return}
   addG($('gnew').value);$('gnew').value='';
   const d={title,artist:$('f-artist').value.trim(),genres:[...fGenres],genre:fGenres.join(', '),link:$('f-link').value.trim(),
-    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,music:$('f-music').value.trim(),
+    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,music:$('f-music').value.trim(),piano:$('f-piano').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),
     strum:$('f-strum').value.replace(/\r/g,''),strumImg:fImg};
   let id=editId;
   if(id){Object.assign(songs.find(x=>x.id===id),d)}
@@ -366,6 +524,7 @@ $('astop').onclick=()=>{asPause();scrollTo({top:0,behavior:'smooth'})};
 addEventListener('wheel',()=>{if(asOn)asPause()},{passive:true});
 addEventListener('touchstart',e=>{if(asOn&&!e.target.closest('#asbar'))asPause()},{passive:true});
 route();
+initSync();
 </script>
 </body>
 </html>
