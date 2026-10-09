@@ -54,7 +54,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 .dg b{display:block;color:var(--ch)}.dg svg{display:block;margin:2px auto}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #asbar{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
-#c{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
+#sync{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
 .ck{cursor:pointer;border-radius:4px}pre .ck:hover{background:#82b8ff44}
 #tip{position:fixed;z-index:20;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px 10px 4px;box-shadow:0 8px 24px #82b8ff77;pointer-events:none;text-align:center}
 #tip b{display:block}#tip svg{display:block;margin:2px auto}
@@ -152,9 +152,15 @@ function refresh(){
   if(cur){const n=songs.find(x=>x.id===cur.id);if(n){cur=n;show();renderMusic()}else go('')}
   else render();
 }
+let warnedEmpty=false;
 function applyRemote(r){
-  const chg=sigOf(r.songs||[])!==sigOf(songs);
-  songs=(r.songs||[]).filter(x=>x&&x.id);tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
+  const rs=(r.songs||[]).filter(x=>x&&x.id);
+  if(!canEdit){
+    if(!rs.length&&songs.length){if(!warnedEmpty){warnedEmpty=true;toast('Server masih kosong. Klik 🔑 Login edit untuk mengunggah lagumu.')}return}
+    const c=sigOf(rs)!==sigOf(songs);songs=rs;if(c)refresh();return;
+  }
+  const chg=sigOf(rs)!==sigOf(songs);
+  songs=rs;tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
   saveLocal();if(chg)refresh();
 }
 async function syncNow(){
@@ -175,6 +181,10 @@ async function syncNow(){
     applyRemote(r);setSync(canEdit?'ok':'view');
   }catch(e){setSync('err',e);toast(e.message||'Gagal sync')}
   finally{busy=false;if(again){again=false;syncNow()}}
+}
+function reloadLocal(){
+  songs=load();try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){tomb={}}
+  sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));refresh();
 }
 async function checkAuth(){
   if(SYNC_ON&&pw){
@@ -197,7 +207,7 @@ async function initSync(){
   $('g-login').onclick=async()=>{
     const v=$('g-pw').value.trim();if(!v)return;
     pw=v;await checkAuth();
-    if(canEdit){try{localStorage.setItem('chordlib_pw',pw)}catch(e){}$('dlg3').close();toast('Mode edit aktif ✨');syncNow()}
+    if(canEdit){try{localStorage.setItem('chordlib_pw',pw)}catch(e){}$('dlg3').close();toast('Mode edit aktif ✨');reloadLocal();syncNow()}
     else alert(authErr?'Tidak bisa menghubungi server Apps Script. Cek: URL berakhiran /exec, akses diatur ke "Anyone", dan sudah deploy versi terbaru.':'Password salah. Harus sama persis dengan PASSWORD di Code.gs.');
   };
   if(!SYNC_ON){setSync('local');return}
@@ -401,7 +411,7 @@ function detectCapo(){
   if(m&&+m[1]>=1&&+m[1]<=9&&$('f-capo').value==='0')$('f-capo').value=m[1];
 }
 function ins(el,t){el.setRangeText(t,el.selectionStart,el.selectionEnd,'end');el.focus()}
-ac function pasteAny(el,img){
+async function pasteAny(el,img){
   try{
     if(navigator.clipboard.read){
       const items=await navigator.clipboard.read();
@@ -412,7 +422,7 @@ ac function pasteAny(el,img){
     ins(el,await navigator.clipboard.readText());
   }catch(e){alert('Browser belum kasih akses clipboard. Klik kotaknya lalu tekan Ctrl+V (di HP: tahan lalu pilih Paste).')}
 }
-$('paste').onclick=ac()=>{await pasteAny($('f-text'),false);detectCapo()};
+$('paste').onclick=async()=>{await pasteAny($('f-text'),false);detectCapo()};
 $('f-text').addEventListener('paste',()=>setTimeout(detectCapo,0));
 /* strumming */
 function setImg(src){
@@ -545,7 +555,7 @@ $('page').addEventListener('mouseout',e=>{if(e.target.closest('.ck'))$('tip').hi
 $('page').addEventListener('click',e=>{const el=e.target.closest('.ck');if(el)showTip(el);else $('tip').hidden=true});
 addEventListener('scroll',()=>{if(!asOn)$('tip').hidden=true},{passive:true});
 try{route()}catch(e){$('list').innerHTML='<div class="empty" style="grid-column:1/-1">⚠ Ada error saat memuat: '+esc(e.message)+'</div>'}
-initc();
+initSync();
 </script>
 </body>
 </html>
