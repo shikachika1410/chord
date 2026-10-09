@@ -98,7 +98,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <div id="gsel"></div>
   <div class="row" style="justify-content:stretch;margin:6px 0 0"><select id="gpick" style="flex:1;min-width:0"></select><input id="gnew" placeholder="atau ketik genre baru" style="flex:1;min-width:0"><button type="button" id="gadd">+</button></div>
   <label>Capo (kalau ada)</label><select id="f-capo" style="width:100%"><option value="0">Tanpa capo</option><option value="1">Capo fret 1</option><option value="2">Capo fret 2</option><option value="3">Capo fret 3</option><option value="4">Capo fret 4</option><option value="5">Capo fret 5</option><option value="6">Capo fret 6</option><option value="7">Capo fret 7</option><option value="8">Capo fret 8</option><option value="9">Capo fret 9</option></select>
-  <label>Chord + lirik <button id="paste" type="button" style="padding:2px 10px;margin-left:6px">📋 Paste</button></label><textarea id="f-text" placeholder="Paste chord di sini"></textarea>
+  <label>Chord + lirik <button id="" type="button" style="padding:2px 10px;margin-left:6px">📋 </button></label><textarea id="f-text" placeholder="Paste chord di sini"></textarea>
   <label>🥁 Strumming / gejrengan (opsional)</label>
   <div class="tools2"><button type="button" id="spaste">📋 Paste</button><button type="button" id="sfile">📷 Pilih gambar</button><button type="button" class="ar" data-a="↓">↓</button><button type="button" class="ar" data-a="↑">↑</button><button type="button" class="ar" data-a="✕">✕</button></div>
   <input type="file" id="sfilein" accept="image/*" hidden>
@@ -128,7 +128,7 @@ const KEY='chordlib_v1',$=id=>document.getElementById(id);
 let songs=load(),cur=null,tr=0,simp=false,editId=null;
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
 /* ====== SYNC (Google Apps Script) — tempel URL web app kamu di baris bawah ini ====== */
-const SYNC_URL='PASTE_URL_APPS_SCRIPT_DI_SINI';
+const SYNC_URL='https://script.google.com/macros/s/AKfycbzP46Yqyinmn7Rmrps37HfkEr4C_rbBdLyV1RwG5JiB_D9KgoHtuHwYSPZtXoSp40n1/exec';
 const SYNC_ON=/^https:\/\/script\.google\.com\//.test(SYNC_URL);
 let tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
 try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
