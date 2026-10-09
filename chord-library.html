@@ -110,8 +110,11 @@ body:not(.ro) #login{display:none}
   <input type="file" id="sfilein" accept="image/*" hidden>
   <div id="simg"></div>
   <textarea id="f-strum" style="min-height:60px" placeholder="Boleh paste gambar strumming (Ctrl+V), atau ketik: ↓ ↓↑ ↑↓↑"></textarea>
-  <label>🎹 Chord piano (opsional, paste terpisah) <button id="ppaste" type="button" style="padding:2px 10px;margin-left:6px">📋 Paste</button></label>
-  <textarea id="f-piano" style="min-height:110px" placeholder="Paste chord versi piano di sini"></textarea>
+  <label>🎹 Chord piano (opsional, paste terpisah — teks atau foto)</label>
+  <div class="tools2"><button type="button" id="ppaste">📋 Paste</button><button type="button" id="pfile">📷 Pilih gambar</button></div>
+  <input type="file" id="pfilein" accept="image/*" hidden>
+  <div id="pimg"></div>
+  <textarea id="f-piano" style="min-height:90px" placeholder="Paste chord piano di sini. Screenshot/foto juga bisa (Ctrl+V atau tombol Paste)."></textarea</textarea>
   <div class="row"><button id="cancel">Batal</button><button class="p" id="save">Simpan</button></div>
 </dialog>
 
@@ -226,7 +229,7 @@ const PRESET=['Pop','Rock','Indie','R&B','Jazz','Acoustic','Ballad','Folk','K-Po
 const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(Boolean):[]);
 let hiddenG=new Set();try{hiddenG=new Set(JSON.parse(localStorage.getItem('chordlib_hg'))||[])}catch(e){}
 const allGenres=()=>[...new Set([...PRESET.filter(g=>!hiddenG.has(g)),...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
-let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g',instF=new Set();
+let fg=new Set(),fGenres=[],fImg='',pImg='',favOnly=false,showDg=true,inst='g',instF=new Set();
 /* ---- cover lagu ---- */
 let covers={};try{covers=JSON.parse(localStorage.getItem('chordlib_cov'))||{}}catch(e){}
 const coverTried=new Set();
@@ -293,8 +296,8 @@ function render(){
   $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button><button id="fgt" class="${instF.has('g')?'on':''}">🎸 Gitar</button><button id="fpn" class="${instF.has('p')?'on':''}">🎹 Piano</button>`+(used.length?`<button data-g="" class="${fg.size||favOnly||instF.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
   const q=$('q').value.toLowerCase(),so=$('sort').value;
   const az=(a,b)=>(a.title||'').localeCompare(b.title||'');
-  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&($('rf').value===''||(+x.rating||0)===+$('rf').value)&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
-  const card=x=>`<div class="it" data-id="${x.id}">${icon(x)}<div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
+  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||((x.piano||'').trim()||x.pianoImg))&&($('rf').value===''||(+x.rating||0)===+$('rf').value)&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
+  const card=x=>`<div class="it" data-id="${x.id}">${icon(x)}<div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${((x.piano||'').trim()||x.pianoImg)?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
   let h='';
   if(so==='genre'){
     const grp={};
@@ -380,7 +383,8 @@ function show(){
   ${(!P&&(cur.strum||cur.strumImg))?`<div class="box"><b>🥁 Strumming</b>${cur.strumImg?`<img src="${cur.strumImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px">`:''}${cur.strum?`<pre>${esc(cur.strum)}</pre>`:''}</div>`:''}
   <div class="tools">${cur.link?`<a href="${esc(cur.link)}" target="_blank" rel="noopener">🔗 Buka di Ultimate Guitar</a>`:''}
     <button id="ed" class="p">✏️ Edit</button><button id="del">🗑 Hapus</button></div>
-  <pre>${P&&!T.trim()?'Belum ada chord piano. Klik ✏️ Edit lalu paste di kolom Chord piano.':lines}</pre>`;
+  ${P&&cur.pianoImg?`<div class="box"><b>🎹 Chord piano (foto)</b><img src="${cur.pianoImg}" style="display:block;max-width:100%;margin:8px 0;border-radius:10px"></div>`:''}
+  <pre>${P&&!T.trim()?(cur.pianoImg?'':'Belum ada chord piano. Klik ✏️ Edit lalu paste di kolom Chord piano.'):lines}</pre>`;
 }
 function route(){
   const m=location.hash.match(/s=(\d+)/),s=m&&songs.find(x=>x.id===m[1]);
@@ -420,7 +424,7 @@ function openForm(s){
   editId=s?s.id:null;$('dt').textContent=s?'Edit lagu':'Tambah lagu';
   const d=s||{};
   $('f-title').value=d.title||'';$('f-artist').value=d.artist||'';$('f-link').value=d.link||'';$('f-text').value=d.text||'';
-  $('f-capo').value=d.capo||0;$('f-music').value=d.music||'';$('f-piano').value=d.piano||'';$('f-strum').value=d.strum||'';$('gnew').value='';
+  $('f-capo').value=d.capo||0;$('f-music').value=d.music||'';$('f-piano').value=d.piano||'';setPImg(d.pianoImg||'');$('f-strum').value=d.strum||'';$('gnew').value='';
   fGenres=s?[...G(s)]:[];renderG();setImg(d.strumImg||'');
   $('dlg').showModal();
 }
@@ -444,11 +448,11 @@ function detectCapo(){
   if(m&&+m[1]>=1&&+m[1]<=9&&$('f-capo').value==='0')$('f-capo').value=m[1];
 }
 function ins(el,t){el.setRangeText(t,el.selectionStart,el.selectionEnd,'end');el.focus()}
-async function pasteAny(el,img){
+async function pasteAny(el,img,set){
   try{
     if(navigator.clipboard.read){
       const items=await navigator.clipboard.read();
-      if(img)for(const it of items){const ty=it.types.find(t=>t.startsWith('image/'));if(ty){loadImg(await it.getType(ty));return}}
+      if(img)for(const it of items){const ty=it.types.find(t=>t.startsWith('image/'));if(ty){loadImg(await it.getType(ty),set);return}}
       for(const it of items)if(it.types.includes('text/plain')){ins(el,await(await it.getType('text/plain')).text());return}
       return;
     }
@@ -462,19 +466,31 @@ function setImg(src){
   fImg=src;
   $('simg').innerHTML=src?`<div style="position:relative;display:inline-block;margin:4px 0;max-width:100%"><img src="${src}" style="max-width:100%;border-radius:10px;border:1px solid var(--bd)"><button type="button" id="simgdel" style="position:absolute;top:4px;right:4px;padding:0 8px">✕</button></div>`:'';
 }
-function loadImg(blob){
+function setPImg(src){
+  pImg=src;
+  $('pimg').innerHTML=src?`<div style="position:relative;display:inline-block;margin:4px 0;max-width:100%"><img src="${src}" style="max-width:100%;border-radius:10px;border:1px solid var(--bd)"><button type="button" id="pimgdel" style="position:absolute;top:4px;right:4px;padding:0 8px">✕</button></div>`:'';
+}
+function loadImg(blob,set){
+  set=set||setImg;const maxW=set===setPImg?1000:700;
   const r=new FileReader();
   r.onload=()=>{const im=new Image();im.onload=()=>{
-    const k=Math.min(1,700/im.width),c=document.createElement('canvas');
+    const k=Math.min(1,maxW/im.width),c=document.createElement('canvas');
     c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
     const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
-    setImg(c.toDataURL('image/jpeg',.85));
+    set(c.toDataURL('image/jpeg',.85));
   };im.src=r.result};
   r.readAsDataURL(blob);
 }
 $('simg').onclick=e=>{if(e.target.id==='simgdel')setImg('')};
 $('spaste').onclick=()=>pasteAny($('f-strum'),true);
-$('ppaste').onclick=()=>pasteAny($('f-piano'),false);
+$('ppaste').onclick=()=>pasteAny($('f-piano'),true,setPImg);
+$('pimg').onclick=e=>{if(e.target.id==='pimgdel')setPImg('')};
+$('pfile').onclick=()=>$('pfilein').click();
+$('pfilein').onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0],setPImg);e.target.value=''};
+$('f-piano').addEventListener('paste',e=>{
+  const f=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith('image/'));
+  if(f){e.preventDefault();loadImg(f.getAsFile(),setPImg)}
+});
 $('sfile').onclick=()=>$('sfilein').click();
 $('sfilein').onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0]);e.target.value=''};
 $('f-strum').addEventListener('paste',e=>{
@@ -499,7 +515,7 @@ $('save').onclick=()=>{
   if(!title){alert('Judul wajib diisi');return}
   addG($('gnew').value);$('gnew').value='';
   const d={title,artist:$('f-artist').value.trim(),genres:[...fGenres],genre:fGenres.join(', '),link:$('f-link').value.trim(),
-    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,music:$('f-music').value.trim(),piano:$('f-piano').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),
+    text:$('f-text').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),capo:+$('f-capo').value,music:$('f-music').value.trim(),piano:$('f-piano').value.replace(/\r/g,'').replace(/\[\/?(ch|tab)\]/g,''),pianoImg:pImg,
     strum:$('f-strum').value.replace(/\r/g,''),strumImg:fImg};
   let id=editId;
   if(id){Object.assign(songs.find(x=>x.id===id),d)}
