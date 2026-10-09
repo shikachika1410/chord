@@ -142,16 +142,18 @@ const SYNC_ON=/^https:\/\/script\.google\.com\//.test(SYNC_URL);
 let authErr=null,tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
 try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
 try{pw=localStorage.getItem('chordlib_pw')||'';dirty=localStorage.getItem('chordlib_dirty')==='1'}catch(e){}
+if(SYNC_ON&&pw)canEdit=true;
+let syncedU={},wm=0,tombPosted='';try{syncedU=JSON.parse(localStorage.getItem('chordlib_su'))||{};wm=+localStorage.getItem('chordlib_wm')||0;tombPosted=localStorage.getItem('chordlib_tp')||''}catch(e){}
 songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
 function setSync(k,e){const el=$('sync');el.textContent={ok:'☁ Tersinkron',view:'👀 Mode lihat · klik untuk edit',local:'💾 Lokal saja',err:'⚠ Gagal sync · klik',wait:'⏳ Sync…'}[k];el.title=(e&&e.message)||''}
-function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(songs));localStorage.setItem('chordlib_tomb',JSON.stringify(tomb));localStorage.setItem('chordlib_dirty',dirty?'1':'0')}catch(e){}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(songs));localStorage.setItem('chordlib_tomb',JSON.stringify(tomb));localStorage.setItem('chordlib_dirty',dirty?'1':'0');localStorage.setItem('chordlib_su',JSON.stringify(syncedU));localStorage.setItem('chordlib_wm',String(wm));localStorage.setItem('chordlib_tp',tombPosted)}catch(e){}}
 function persist(){
   const now=new Set(songs.map(x=>x.id));
   songs.forEach(x=>{const j=JSON.stringify({...x,u:0});if(sig[x.id]!==j){sig[x.id]=j;x.u=Date.now();delete tomb[x.id]}});
   Object.keys(sig).forEach(id=>{if(!now.has(id)){delete sig[id];tomb[id]=Date.now()}});
   if(SYNC_ON&&canEdit)dirty=true;
   saveLocal();
-  if(SYNC_ON&&canEdit){if(busy)again=true;else{clearTimeout(st);st=setTimeout(syncNow,1500)}}
+  if(SYNC_ON&&canEdit){setSync('wait');if(busy)again=true;else{clearTimeout(st);st=setTimeout(syncNow,800)}}
 }
 function sigOf(a){return JSON.stringify([...a].sort((x,y)=>x.id<y.id?-1:1))}
 function refresh(){
@@ -160,45 +162,61 @@ function refresh(){
   else render();
 }
 let warnedEmpty=false;
+function merge(r){
+  const m=new Map();
+  [...songs,...(r.songs||[])].forEach(x=>{const o=m.get(x.id);if(!o||(x.u||0)>(o.u||0))m.set(x.id,x)});
+  const t={...(r.tomb||{})};
+  Object.keys(tomb).forEach(id=>{if((tomb[id]||0)>(t[id]||0))t[id]=tomb[id]});
+  Object.keys(t).forEach(id=>{const x=m.get(id);if(x&&(x.u||0)<=t[id])m.delete(id)});
+  return{songs:[...m.values()],tomb:t};
+}
+const pendingSongs=()=>songs.filter(x=>syncedU[x.id]!==(x.u||0));
 function applyRemote(r){
-  const rs=(r.songs||[]).filter(x=>x&&x.id);
-  if(!canEdit){
-    if(!rs.length&&songs.length){if(!warnedEmpty){warnedEmpty=true;toast('Server masih kosong. Klik 🔑 Login edit untuk mengunggah lagumu.')}return}
-    const c=sigOf(rs)!==sigOf(songs);songs=rs;if(c)refresh();return;
-  }
-  const chg=sigOf(rs)!==sigOf(songs);
-  songs=rs;tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
-  saveLocal();if(chg)refresh();
+  const rs=(r.songs||[]).filter(x=>x&&x.id),before=sigOf(songs);
+  if(!canEdit&&!rs.length&&!r.delta&&songs.length&&!warnedEmpty){warnedEmpty=true;toast('Server masih kosong. Klik 🔑 Login edit untuk mengunggah lagumu.')}
+  const m=merge({songs:rs,tomb:r.tomb||{}});songs=m.songs;tomb=m.tomb;
+  const by=new Map(songs.map(x=>[x.id,x]));
+  rs.forEach(x=>{const y=by.get(x.id);if(y&&(y.u||0)===(x.u||0))syncedU[x.id]=x.u||0;if((x.u||0)>wm)wm=x.u||0});
+  Object.keys(syncedU).forEach(id=>{if(!by.has(id))delete syncedU[id]});
+  Object.values(tomb).forEach(v=>{if(v>wm)wm=v});
+  sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
+  saveLocal();if(sigOf(songs)!==before)refresh();
 }
-async function syncNow(){
+async function syncNow(pull){
   if(!SYNC_ON||busy)return;
-  busy=true;setSync('wait');
+  busy=true;setSync('wait');let posted=false;
   try{
-    if(pw&&!canEdit&&authErr)await checkAuth();
-    let r;
-    if(canEdit&&dirty){
-      r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({pw,songs,tomb})})).json();
-      if(r.error)throw new Error(r.error==='password'?'Password edit salah':r.error);
-      dirty=false;
-    }else{
-      r=await(await fetch(SYNC_URL+'?t='+Date.now(),{cache:'no-store'})).json();
-      if(canEdit&&r.songs&&!r.songs.length&&songs.length){dirty=true;again=true;return}
+    if(canEdit){
+      const pend=pendingSongs(),tj=JSON.stringify(tomb);
+      if(pend.length||tj!==tombPosted){
+        const snap=pend.map(x=>[x.id,x.u||0]);
+        const res=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({pw,songs:pend,tomb})})).json();
+        if(res.error)throw Object.assign(new Error(res.error==='password'?'Password edit salah':res.error),{pwBad:res.error==='password'});
+        snap.forEach(([id,u])=>{syncedU[id]=u;if(u>wm)wm=u});tombPosted=tj;saveLocal();posted=true;
+      }
     }
-    if(!r.songs)throw new Error('Respon server tidak valid');
-    applyRemote(r);setSync(canEdit?'ok':'view');
-  }catch(e){setSync('err',e);toast(e.message||'Gagal sync')}
-  finally{busy=false;if(again){again=false;syncNow()}}
+    if(pull||!posted){
+      const since=wm?Math.max(1,wm-600000):0;
+      const r=await(await fetch(SYNC_URL+'?since='+since+'&t='+Date.now(),{cache:'no-store'})).json();
+      if(!r.songs)throw new Error('Respon server tidak valid');
+      applyRemote(r);
+    }
+    const left=canEdit&&pendingSongs().length;
+    setSync(canEdit?(left?'wait':'ok'):'view');
+    if(left)again=true;
+  }catch(e){
+    if(e.pwBad)revokeEdit(false);else{setSync('err',e);toast(e.message||'Gagal sync')}
+  }finally{busy=false;if(again){again=false;syncNow()}}
 }
-function reloadLocal(){
-  songs=load();try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){tomb={}}
-  sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));refresh();
+function reloadLocal(){refresh()}
+function revokeEdit(loud){
+  canEdit=false;pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}
+  document.body.classList.add('ro');setSync('view');
+  if(loud)alert('Password salah. Harus sama persis dengan PASSWORD di Code.gs (dan deploy versi baru kalau baru kamu ubah).');
+  else toast('Password edit tidak cocok, masuk ulang ya');
 }
-async function checkAuth(){
-  if(SYNC_ON&&pw){
-    authErr=null;try{const r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({action:'auth',pw})})).json();canEdit=!!r.ok}catch(e){canEdit=false;authErr=e}
-    if(!canEdit&&!authErr){pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}}
-  }
-  document.body.classList.toggle('ro',SYNC_ON&&!canEdit);
+async function verifyPw(loud){
+  try{const r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({action:'auth',pw})})).json();if(r&&r.ok===false)revokeEdit(loud)}catch(e){}
 }
 async function initSync(){
   document.body.classList.toggle('ro',SYNC_ON&&!canEdit);
@@ -207,20 +225,23 @@ async function initSync(){
     $('g-info').textContent=!SYNC_ON?'Sync belum diaktifkan: tempel URL Apps Script di baris SYNC_URL pada file HTML.':ed?'Kamu sedang di mode edit. Perubahan otomatis tersimpan ke server.':'Kamu sedang di mode lihat. Masukkan password edit untuk menambah atau mengubah lagu.';
     $('g-in').hidden=ed||!SYNC_ON;$('g-login').hidden=ed||!SYNC_ON;$('g-logout').hidden=!ed;$('g-pw').value='';
     $('dlg3').showModal();
+    if(!ed&&SYNC_ON)setTimeout(()=>$('g-pw').focus(),50);
   };
   $('login').onclick=()=>$('sync').click();
   $('g-close').onclick=()=>$('dlg3').close();
+  $('g-pw').onkeydown=e=>{if(e.key==='Enter')$('g-login').click()};
   $('g-logout').onclick=()=>{pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}canEdit=false;document.body.classList.add('ro');$('dlg3').close();setSync('view')};
-  $('g-login').onclick=async()=>{
+  $('g-login').onclick=()=>{
     const v=$('g-pw').value.trim();if(!v)return;
-    pw=v;await checkAuth();
-    if(canEdit){try{localStorage.setItem('chordlib_pw',pw)}catch(e){}$('dlg3').close();toast('Mode edit aktif ✨');reloadLocal();syncNow()}
-    else alert(authErr?'Tidak bisa menghubungi server Apps Script. Cek: URL berakhiran /exec, akses diatur ke "Anyone", dan sudah deploy versi terbaru.':'Password salah. Harus sama persis dengan PASSWORD di Code.gs.');
+    pw=v;canEdit=true;try{localStorage.setItem('chordlib_pw',pw)}catch(e){}
+    document.body.classList.remove('ro');$('dlg3').close();toast('Mode edit aktif ✨');
+    verifyPw(true);syncNow(true);
   };
   if(!SYNC_ON){setSync('local');return}
-  await checkAuth();syncNow();
-  setInterval(()=>{if(!document.hidden)syncNow()},60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+  syncNow(true);
+  if(canEdit&&pw)verifyPw(false);
+  setInterval(()=>{if(!document.hidden)syncNow(true)},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow(true)});
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
@@ -471,13 +492,13 @@ function setPImg(src){
   $('pimg').innerHTML=src?`<div style="position:relative;display:inline-block;margin:4px 0;max-width:100%"><img src="${src}" style="max-width:100%;border-radius:10px;border:1px solid var(--bd)"><button type="button" id="pimgdel" style="position:absolute;top:4px;right:4px;padding:0 8px">✕</button></div>`:'';
 }
 function loadImg(blob,set){
-  set=set||setImg;const maxW=set===setPImg?1000:700;
+  set=set||setImg;const maxW=set===setPImg?900:600;
   const r=new FileReader();
   r.onload=()=>{const im=new Image();im.onload=()=>{
     const k=Math.min(1,maxW/im.width),c=document.createElement('canvas');
     c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
     const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
-    set(c.toDataURL('image/jpeg',.85));
+    set(c.toDataURL('image/jpeg',.72));
   };im.src=r.result};
   r.readAsDataURL(blob);
 }
