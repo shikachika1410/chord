@@ -54,7 +54,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 .dg b{display:block;color:var(--ch)}.dg svg{display:block;margin:2px auto}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #asbar{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
-#sync{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
+#c{cursor:pointer;color:#fff;font-size:13px;font-weight:700;background:#ffffff33;border-radius:12px;padding:3px 10px}
 .ck{cursor:pointer;border-radius:4px}pre .ck:hover{background:#82b8ff44}
 #tip{position:fixed;z-index:20;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px 10px 4px;box-shadow:0 8px 24px #82b8ff77;pointer-events:none;text-align:center}
 #tip b{display:block}#tip svg{display:block;margin:2px auto}
@@ -130,7 +130,7 @@ const KEY='chordlib_v1',$=id=>document.getElementById(id);
 let songs=load(),cur=null,tr=0,simp=false,editId=null;
 function load(){try{const a=JSON.parse(localStorage.getItem(KEY));return Array.isArray(a)?a.filter(x=>x&&x.id):[]}catch(e){return[]}}
 /* ====== SYNC (Google Apps Script) — tempel URL web app kamu di baris bawah ini ====== */
-const SYNC_URL='PASTE_URL_APPS_SCRIPT_DI_SINI';
+const SYNC_URL='https://script.google.com/macros/s/AKfycbzP46Yqyinmn7Rmrps37HfkEr4C_rbBdLyV1RwG5JiB_D9KgoHtuHwYSPZtXoSp40n1/exec';
 const SYNC_ON=/^https:\/\/script\.google\.com\//.test(SYNC_URL);
 let authErr=null,tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
 try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
@@ -401,7 +401,7 @@ function detectCapo(){
   if(m&&+m[1]>=1&&+m[1]<=9&&$('f-capo').value==='0')$('f-capo').value=m[1];
 }
 function ins(el,t){el.setRangeText(t,el.selectionStart,el.selectionEnd,'end');el.focus()}
-async function pasteAny(el,img){
+ac function pasteAny(el,img){
   try{
     if(navigator.clipboard.read){
       const items=await navigator.clipboard.read();
@@ -412,7 +412,7 @@ async function pasteAny(el,img){
     ins(el,await navigator.clipboard.readText());
   }catch(e){alert('Browser belum kasih akses clipboard. Klik kotaknya lalu tekan Ctrl+V (di HP: tahan lalu pilih Paste).')}
 }
-$('paste').onclick=async()=>{await pasteAny($('f-text'),false);detectCapo()};
+$('paste').onclick=ac()=>{await pasteAny($('f-text'),false);detectCapo()};
 $('f-text').addEventListener('paste',()=>setTimeout(detectCapo,0));
 /* strumming */
 function setImg(src){
@@ -545,7 +545,7 @@ $('page').addEventListener('mouseout',e=>{if(e.target.closest('.ck'))$('tip').hi
 $('page').addEventListener('click',e=>{const el=e.target.closest('.ck');if(el)showTip(el);else $('tip').hidden=true});
 addEventListener('scroll',()=>{if(!asOn)$('tip').hidden=true},{passive:true});
 try{route()}catch(e){$('list').innerHTML='<div class="empty" style="grid-column:1/-1">⚠ Ada error saat memuat: '+esc(e.message)+'</div>'}
-initSync();
+initc();
 </script>
 </body>
 </html>
