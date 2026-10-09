@@ -60,12 +60,14 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 #tip b{display:block}#tip svg{display:block;margin:2px auto}
 .grow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)}
 .ro #add,.ro #ed,.ro #del,.ro #favb,.ro .rate,.ro .fv,.ro #gmng{display:none!important}
+body:not(.ro) #login{display:none}
 </style>
 </head>
 <body>
 <header>
   <h1><svg viewBox="0 0 64 64" width="38" height="38"><g transform="rotate(45 32 32)" fill="#fff"><rect x="29" y="2" width="6" height="30" rx="2"/><rect x="27" y="0" width="10" height="9" rx="3"/><ellipse cx="32" cy="40" rx="13" ry="10"/><ellipse cx="32" cy="53" rx="16" ry="11"/><circle cx="32" cy="46" r="5" fill="#f472b6"/></g></svg>Chord Library</h1>
   <span id="sync" title="">⏳</span>
+  <button id="login">🔑 Login edit</button>
   <button class="p" id="add">+ Lagu</button>
 </header>
 <main>
@@ -98,7 +100,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <div id="gsel"></div>
   <div class="row" style="justify-content:stretch;margin:6px 0 0"><select id="gpick" style="flex:1;min-width:0"></select><input id="gnew" placeholder="atau ketik genre baru" style="flex:1;min-width:0"><button type="button" id="gadd">+</button></div>
   <label>Capo (kalau ada)</label><select id="f-capo" style="width:100%"><option value="0">Tanpa capo</option><option value="1">Capo fret 1</option><option value="2">Capo fret 2</option><option value="3">Capo fret 3</option><option value="4">Capo fret 4</option><option value="5">Capo fret 5</option><option value="6">Capo fret 6</option><option value="7">Capo fret 7</option><option value="8">Capo fret 8</option><option value="9">Capo fret 9</option></select>
-  <label>Chord + lirik <button id="" type="button" style="padding:2px 10px;margin-left:6px">📋 </button></label><textarea id="f-text" placeholder="Paste chord di sini"></textarea>
+  <label>Chord + lirik <button id="paste" type="button" style="padding:2px 10px;margin-left:6px">📋 Paste</button></label><textarea id="f-text" placeholder="Paste chord di sini"></textarea>
   <label>🥁 Strumming / gejrengan (opsional)</label>
   <div class="tools2"><button type="button" id="spaste">📋 Paste</button><button type="button" id="sfile">📷 Pilih gambar</button><button type="button" class="ar" data-a="↓">↓</button><button type="button" class="ar" data-a="↑">↑</button><button type="button" class="ar" data-a="✕">✕</button></div>
   <input type="file" id="sfilein" accept="image/*" hidden>
@@ -126,11 +128,11 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 <script>
 const KEY='chordlib_v1',$=id=>document.getElementById(id);
 let songs=load(),cur=null,tr=0,simp=false,editId=null;
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function load(){try{const a=JSON.parse(localStorage.getItem(KEY));return Array.isArray(a)?a.filter(x=>x&&x.id):[]}catch(e){return[]}}
 /* ====== SYNC (Google Apps Script) — tempel URL web app kamu di baris bawah ini ====== */
-const SYNC_URL='https://script.google.com/macros/s/AKfycbzP46Yqyinmn7Rmrps37HfkEr4C_rbBdLyV1RwG5JiB_D9KgoHtuHwYSPZtXoSp40n1/exec';
+const SYNC_URL='PASTE_URL_APPS_SCRIPT_DI_SINI';
 const SYNC_ON=/^https:\/\/script\.google\.com\//.test(SYNC_URL);
-let tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
+let authErr=null,tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
 try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
 try{pw=localStorage.getItem('chordlib_pw')||'';dirty=localStorage.getItem('chordlib_dirty')==='1'}catch(e){}
 songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
@@ -152,13 +154,14 @@ function refresh(){
 }
 function applyRemote(r){
   const chg=sigOf(r.songs||[])!==sigOf(songs);
-  songs=r.songs||[];tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
+  songs=(r.songs||[]).filter(x=>x&&x.id);tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
   saveLocal();if(chg)refresh();
 }
 async function syncNow(){
   if(!SYNC_ON||busy)return;
   busy=true;setSync('wait');
   try{
+    if(pw&&!canEdit&&authErr)await checkAuth();
     let r;
     if(canEdit&&dirty){
       r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({pw,songs,tomb})})).json();
@@ -175,8 +178,8 @@ async function syncNow(){
 }
 async function checkAuth(){
   if(SYNC_ON&&pw){
-    try{const r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({action:'auth',pw})})).json();canEdit=!!r.ok}catch(e){canEdit=false}
-    if(!canEdit){pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}}
+    authErr=null;try{const r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({action:'auth',pw})})).json();canEdit=!!r.ok}catch(e){canEdit=false;authErr=e}
+    if(!canEdit&&!authErr){pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}}
   }
   document.body.classList.toggle('ro',SYNC_ON&&!canEdit);
 }
@@ -188,13 +191,14 @@ async function initSync(){
     $('g-in').hidden=ed||!SYNC_ON;$('g-login').hidden=ed||!SYNC_ON;$('g-logout').hidden=!ed;$('g-pw').value='';
     $('dlg3').showModal();
   };
+  $('login').onclick=()=>$('sync').click();
   $('g-close').onclick=()=>$('dlg3').close();
   $('g-logout').onclick=()=>{pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}canEdit=false;document.body.classList.add('ro');$('dlg3').close();setSync('view')};
   $('g-login').onclick=async()=>{
     const v=$('g-pw').value.trim();if(!v)return;
     pw=v;await checkAuth();
     if(canEdit){try{localStorage.setItem('chordlib_pw',pw)}catch(e){}$('dlg3').close();toast('Mode edit aktif ✨');syncNow()}
-    else alert('Password salah atau server tidak bisa dihubungi');
+    else alert(authErr?'Tidak bisa menghubungi server Apps Script. Cek: URL berakhiran /exec, akses diatur ke "Anyone", dan sudah deploy versi terbaru.':'Password salah. Harus sama persis dengan PASSWORD di Code.gs.');
   };
   if(!SYNC_ON){setSync('local');return}
   await checkAuth();syncNow();
@@ -246,7 +250,7 @@ function render(){
   fg=new Set([...fg].filter(x=>used.includes(x)));
   $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button><button id="fgt" class="${instF.has('g')?'on':''}">🎸 Gitar</button><button id="fpn" class="${instF.has('p')?'on':''}">🎹 Piano</button>`+(used.length?`<button data-g="" class="${fg.size||favOnly||instF.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
   const q=$('q').value.toLowerCase(),so=$('sort').value;
-  const az=(a,b)=>a.title.localeCompare(b.title);
+  const az=(a,b)=>(a.title||'').localeCompare(b.title||'');
   let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&(+x.rating||0)>=+$('rf').value&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
   const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
   let h='';
@@ -540,7 +544,7 @@ $('page').addEventListener('mouseover',e=>{const el=e.target.closest('.ck');if(e
 $('page').addEventListener('mouseout',e=>{if(e.target.closest('.ck'))$('tip').hidden=true});
 $('page').addEventListener('click',e=>{const el=e.target.closest('.ck');if(el)showTip(el);else $('tip').hidden=true});
 addEventListener('scroll',()=>{if(!asOn)$('tip').hidden=true},{passive:true});
-route();
+try{route()}catch(e){$('list').innerHTML='<div class="empty" style="grid-column:1/-1">⚠ Ada error saat memuat: '+esc(e.message)+'</div>'}
 initSync();
 </script>
 </body>
