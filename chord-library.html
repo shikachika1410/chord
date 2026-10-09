@@ -75,7 +75,7 @@ body:not(.ro) #login{display:none}
     <div class="bar">
       <input id="q" placeholder="🔍 Cari judul / artis / genre…">
       <select id="sort"><option value="az">A–Z</option><option value="genre">Per genre</option><option value="artist">Per artis</option><option value="new">Terbaru</option><option value="rate">Rating tertinggi</option></select>
-      <select id="rf"><option value="0">Semua rating</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select>
+      <select id="rf"><option value="">Semua rating</option><option value="5">★★★★★ (5)</option><option value="4">★★★★ (4)</option><option value="3">★★★ (3)</option><option value="2">★★ (2)</option><option value="1">★ (1)</option><option value="0">Belum dirating</option></select>
     </div>
     <div class="gchips" id="gchips"></div>
     <div class="list" id="list"></div>
@@ -261,7 +261,7 @@ function render(){
   $('gchips').innerHTML=`<button id="favf" class="${favOnly?'on':''}">⭐ Favorit</button><button id="fgt" class="${instF.has('g')?'on':''}">🎸 Gitar</button><button id="fpn" class="${instF.has('p')?'on':''}">🎹 Piano</button>`+(used.length?`<button data-g="" class="${fg.size||favOnly||instF.size?'':'on'}">Semua</button>`+used.map(g=>`<button data-g="${esc(g)}" class="${fg.has(g)?'on':''}">${esc(g)}</button>`).join(''):'');
   const q=$('q').value.toLowerCase(),so=$('sort').value;
   const az=(a,b)=>(a.title||'').localeCompare(b.title||'');
-  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&(+x.rating||0)>=+$('rf').value&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
+  let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&($('rf').value===''||(+x.rating||0)===+$('rf').value)&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
   const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
   let h='';
   if(so==='genre'){
