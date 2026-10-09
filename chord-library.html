@@ -61,6 +61,10 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 .grow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)}
 .ro #add,.ro #ed,.ro #del,.ro #favb,.ro .rate,.ro .fv,.ro #gmng{display:none!important}
 body:not(.ro) #login{display:none}
+.ic{overflow:hidden}.ic img{width:100%;height:100%;object-fit:cover;display:block}
+.ic.cv{width:54px;height:54px;border-radius:14px;box-shadow:0 3px 10px #f472b655}
+.hd{display:flex;gap:14px;align-items:center}
+.cover{width:78px;height:78px;border-radius:16px;object-fit:cover;box-shadow:0 4px 14px #f472b655;flex:none}
 </style>
 </head>
 <body>
@@ -223,6 +227,34 @@ const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(B
 let hiddenG=new Set();try{hiddenG=new Set(JSON.parse(localStorage.getItem('chordlib_hg'))||[])}catch(e){}
 const allGenres=()=>[...new Set([...PRESET.filter(g=>!hiddenG.has(g)),...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
 let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g',instF=new Set();
+/* ---- cover lagu ---- */
+let covers={};try{covers=JSON.parse(localStorage.getItem('chordlib_cov'))||{}}catch(e){}
+const coverTried=new Set();
+function coverOf(x){
+  const u=(x.music||'').trim();if(!u)return'';
+  try{
+    const l=new URL(u),h=l.hostname.replace(/^www\.|^m\.|^music\./,'');
+    let id='';
+    if(h==='youtu.be')id=l.pathname.slice(1);
+    else if(h==='youtube.com')id=l.searchParams.get('v')||(l.pathname.match(/\/(?:shorts|embed|live)\/([\w-]+)/)||[])[1]||'';
+    if(id)return`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+    if(h==='open.spotify.com'){
+      if(covers[u])return covers[u];
+      if(!coverTried.has(u)){coverTried.add(u);fetchCover(u)}
+    }
+  }catch(e){}
+  return'';
+}
+async function fetchCover(u){
+  try{
+    const j=await(await fetch('https://open.spotify.com/oembed?url='+encodeURIComponent(u))).json();
+    if(j&&j.thumbnail_url){covers[u]=j.thumbnail_url;try{localStorage.setItem('chordlib_cov',JSON.stringify(covers))}catch(e){}refresh()}
+  }catch(e){}
+}
+function icon(x){
+  const c=coverOf(x);
+  return c?`<div class="ic cv"><img src="${esc(c)}" alt="" loading="lazy" onerror="this.parentNode.className='ic';this.parentNode.textContent='🎵'"></div>`:'<div class="ic">🎵</div>';
+}
 /* ---- chord logic ---- */
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
 const NAMES=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
@@ -262,7 +294,7 @@ function render(){
   const q=$('q').value.toLowerCase(),so=$('sort').value;
   const az=(a,b)=>(a.title||'').localeCompare(b.title||'');
   let l=songs.filter(x=>(!fg.size||G(x).some(t=>fg.has(t)))&&(!favOnly||x.fav)&&(!instF.has('g')||(x.text||'').trim())&&(!instF.has('p')||(x.piano||'').trim())&&($('rf').value===''||(+x.rating||0)===+$('rf').value)&&(`${x.title} ${x.artist} ${G(x).join(' ')}`).toLowerCase().includes(q));
-  const card=x=>`<div class="it" data-id="${x.id}"><div class="ic">🎵</div><div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
+  const card=x=>`<div class="it" data-id="${x.id}">${icon(x)}<div><b>${esc(x.title)}</b><small>${esc(x.artist||'—')}${G(x).length?' · '+esc(G(x).join(', ')):''}${x.rating?' · '+'★'.repeat(x.rating):''}${(x.text||'').trim()?' · 🎸':''}${(x.piano||'').trim()?(' '+((x.text||'').trim()?'':'· ')+'🎹'):''}</small></div><button class="fv" data-f="${x.id}" title="Favorit">${x.fav?'⭐':'☆'}</button></div>`;
   let h='';
   if(so==='genre'){
     const grp={};
@@ -332,13 +364,14 @@ function keys(tok){
 /* ---- song page ---- */
 function show(){
   $('tip').hidden=true;
+  const cv=coverOf(cur);
   const P=inst==='p',T=P?(cur.piano||''):cur.text,k0=cur.capo||0;
   let sh=tr,capo=k0;
   if(simp&&!P){capo=bestCapo(T,k0+tr);sh=k0+tr-capo}
   const lines=T.split('\n').map(l=>isChordLine(l)?`<span class="c">${esc(convLine(l,sh,simp)).replace(/(\S+)/g,'<span class="ck" data-c="$1">$1</span>')}</span>`:/^\s*\[[^\]]+\]\s*$/.test(l)?`<span class="s">${esc(l)}</span>`:esc(l)).join('\n');
   const uniq=[...new Set(chordsOf(T).map(x=>conv(x,sh,simp)))];
   const t=tr>0?'+'+tr:tr;
-  $('view').innerHTML=`<h2>${esc(cur.title)}</h2><div class="mut">${esc(cur.artist||'')}${G(cur).length?' · '+esc(G(cur).join(', ')):''}</div>
+  $('view').innerHTML=`<div class="hd">${cv?`<img class="cover" src="${esc(cv)}" alt="" onerror="this.remove()">`:''}<div><h2>${esc(cur.title)}</h2><div class="mut">${esc(cur.artist||'')}${G(cur).length?' · '+esc(G(cur).join(', ')):''}</div></div></div>
   <div class="tools"><button id="favb">${cur.fav?'⭐ Favorit':'☆ Favorit'}</button><span class="rate">${[1,2,3,4,5].map(i=>`<span class="st" data-r="${i}">${i<=(cur.rating||0)?'★':'☆'}</span>`).join('')}</span></div>
   <div class="tools"><button id="tdn">−</button><b>${t} semitone</b><button id="tup">+</button>
     <button id="sm" class="${simp?'on':''}">✨ Simplify</button><button id="rst">Reset</button><button id="inst">${P?'🎸 Gitar':'🎹 Piano'}</button></div>
