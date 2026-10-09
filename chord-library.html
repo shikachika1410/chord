@@ -58,6 +58,8 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
 .ck{cursor:pointer;border-radius:4px}pre .ck:hover{background:#82b8ff44}
 #tip{position:fixed;z-index:20;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px 10px 4px;box-shadow:0 8px 24px #82b8ff77;pointer-events:none;text-align:center}
 #tip b{display:block}#tip svg{display:block;margin:2px auto}
+.grow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)}
+.ro #add,.ro #ed,.ro #del,.ro #favb,.ro .rate,.ro .fv,.ro #gmng{display:none!important}
 </style>
 </head>
 <body>
@@ -92,7 +94,7 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <label>🎵 Link musik (YouTube / Spotify, opsional)</label><input id="f-music" placeholder="https://youtu.be/... atau open.spotify.com/track/...">
   <label>Judul</label><input id="f-title">
   <label>Artis</label><input id="f-artist">
-  <label>Genre (bisa lebih dari satu)</label>
+  <label>Genre (bisa lebih dari satu) <button type="button" id="gmng" style="padding:2px 10px;margin-left:6px">🗑 Kelola genre</button></label>
   <div id="gsel"></div>
   <div class="row" style="justify-content:stretch;margin:6px 0 0"><select id="gpick" style="flex:1;min-width:0"></select><input id="gnew" placeholder="atau ketik genre baru" style="flex:1;min-width:0"><button type="button" id="gadd">+</button></div>
   <label>Capo (kalau ada)</label><select id="f-capo" style="width:100%"><option value="0">Tanpa capo</option><option value="1">Capo fret 1</option><option value="2">Capo fret 2</option><option value="3">Capo fret 3</option><option value="4">Capo fret 4</option><option value="5">Capo fret 5</option><option value="6">Capo fret 6</option><option value="7">Capo fret 7</option><option value="8">Capo fret 8</option><option value="9">Capo fret 9</option></select>
@@ -107,108 +109,105 @@ textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace;font-size:13p
   <div class="row"><button id="cancel">Batal</button><button class="p" id="save">Simpan</button></div>
 </dialog>
 
+<dialog id="dlg4">
+  <h3 style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">Kelola genre</h3>
+  <p class="mut">Hapus genre yang tidak kamu pakai. Genre yang dihapus juga dilepas dari semua lagu yang memilikinya.</p>
+  <div id="glist"></div>
+  <div class="row"><button class="p" id="g4close">Selesai</button></div>
+</dialog>
+
 <dialog id="dlg3">
-  <h3 style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">☁ Sync lewat GitHub</h3>
-  <p class="mut">Semua lagu disimpan sebagai 1 file JSON di repo GitHub kamu. Disarankan repo <b>private</b>, terpisah dari repo halaman ini. Isi sekali di tiap perangkat.</p>
-  <label>Repo data (username/nama-repo)</label><input id="g-repo" placeholder="username/chord-data">
-  <label>Nama file</label><input id="g-path" placeholder="chord-library.json">
-  <label>Branch (kosongkan = branch utama)</label><input id="g-branch">
-  <label>Token GitHub</label><input id="g-token" type="password" autocomplete="off">
-  <p class="mut">Buat di GitHub → Settings → Developer settings → Fine-grained tokens. Pilih <b>hanya repo data itu</b>, izin <b>Contents: Read and write</b>. Token hanya disimpan di browser perangkat ini.</p>
-  <div class="row"><button id="g-off">Putuskan</button><button id="g-close">Tutup</button><button class="p" id="g-save">Simpan &amp; sync</button></div>
+  <h3 style="margin:0 0 6px;font-family:Pacifico,cursive;font-weight:400;color:var(--ac)">☁ Sync &amp; mode edit</h3>
+  <p class="mut" id="g-info"></p>
+  <div id="g-in"><label>Password edit</label><input id="g-pw" type="password" autocomplete="off"></div>
+  <div class="row"><button id="g-logout">Keluar mode edit</button><button id="g-close">Tutup</button><button class="p" id="g-login">Masuk mode edit</button></div>
 </dialog>
 
 <script>
 const KEY='chordlib_v1',$=id=>document.getElementById(id);
 let songs=load(),cur=null,tr=0,simp=false,editId=null;
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
-let gh=null,tomb={},sig={},busy=false,again=false,st=0;
-try{gh=JSON.parse(localStorage.getItem('chordlib_gh'))}catch(e){}
+/* ====== SYNC (Google Apps Script) — tempel URL web app kamu di baris bawah ini ====== */
+const SYNC_URL='PASTE_URL_APPS_SCRIPT_DI_SINI';
+const SYNC_ON=/^https:\/\/script\.google\.com\//.test(SYNC_URL);
+let tomb={},sig={},busy=false,again=false,st=0,canEdit=!SYNC_ON,pw='',dirty=false;
 try{tomb=JSON.parse(localStorage.getItem('chordlib_tomb'))||{}}catch(e){}
+try{pw=localStorage.getItem('chordlib_pw')||'';dirty=localStorage.getItem('chordlib_dirty')==='1'}catch(e){}
 songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
-function setSync(k,e){const el=$('sync');el.textContent={ok:'☁ Tersinkron',local:'💾 Lokal saja · klik untuk sync',err:'⚠ Gagal sync · klik',wait:'⏳ Sync…'}[k];el.title=(e&&e.message)||''}
-function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(songs));localStorage.setItem('chordlib_tomb',JSON.stringify(tomb))}catch(e){}}
+function setSync(k,e){const el=$('sync');el.textContent={ok:'☁ Tersinkron',view:'👀 Mode lihat · klik untuk edit',local:'💾 Lokal saja',err:'⚠ Gagal sync · klik',wait:'⏳ Sync…'}[k];el.title=(e&&e.message)||''}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(songs));localStorage.setItem('chordlib_tomb',JSON.stringify(tomb));localStorage.setItem('chordlib_dirty',dirty?'1':'0')}catch(e){}}
 function persist(){
   const now=new Set(songs.map(x=>x.id));
   songs.forEach(x=>{const j=JSON.stringify({...x,u:0});if(sig[x.id]!==j){sig[x.id]=j;x.u=Date.now();delete tomb[x.id]}});
   Object.keys(sig).forEach(id=>{if(!now.has(id)){delete sig[id];tomb[id]=Date.now()}});
+  if(SYNC_ON&&canEdit)dirty=true;
   saveLocal();
-  if(gh){if(busy)again=true;else{clearTimeout(st);st=setTimeout(syncNow,1500)}}
+  if(SYNC_ON&&canEdit){if(busy)again=true;else{clearTimeout(st);st=setTimeout(syncNow,1500)}}
 }
 function sigOf(a){return JSON.stringify([...a].sort((x,y)=>x.id<y.id?-1:1))}
-function merge(r){
-  const m=new Map();
-  [...songs,...(r.songs||[])].forEach(x=>{const o=m.get(x.id);if(!o||(x.u||0)>(o.u||0))m.set(x.id,x)});
-  const t={...(r.tomb||{})};
-  Object.keys(tomb).forEach(id=>{if((tomb[id]||0)>(t[id]||0))t[id]=tomb[id]});
-  Object.keys(t).forEach(id=>{const x=m.get(id);if(x&&(x.u||0)<=t[id])m.delete(id)});
-  return{songs:[...m.values()],tomb:t};
-}
 function refresh(){
   if(!cur&&/s=\d+/.test(location.hash)){route();return}
   if(cur){const n=songs.find(x=>x.id===cur.id);if(n){cur=n;show();renderMusic()}else go('')}
   else render();
 }
-/* ---- GitHub file sync ---- */
-const ghUrl=()=>`https://api.github.com/repos/${gh.repo}/contents/${gh.path||'chord-library.json'}`;
-const ghH=()=>({Authorization:'Bearer '+gh.token,Accept:'application/vnd.github+json'});
-const ghErr=r=>Object.assign(new Error({401:'Token salah / kedaluwarsa',403:'Token tidak punya izin',404:'Repo tidak ketemu / token tak punya akses',409:'Konflik',422:'Konflik'}[r.status]||'GitHub error '+r.status),{status:r.status});
-async function ghGet(){
-  const q=(gh.branch?'ref='+encodeURIComponent(gh.branch)+'&':'')+'t='+Date.now();
-  const res=await fetch(ghUrl()+'?'+q,{headers:ghH(),cache:'no-store'});
-  if(res.status===404){const chk=await fetch(`https://api.github.com/repos/${gh.repo}`,{headers:ghH()});if(!chk.ok)throw ghErr(chk);return{data:null,sha:null}}
-  if(!res.ok)throw ghErr(res);
-  const j=await res.json();let txt;
-  if(j.content&&j.encoding==='base64')txt=decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
-  else{const r2=await fetch(ghUrl()+'?'+q,{headers:{...ghH(),Accept:'application/vnd.github.raw+json'},cache:'no-store'});if(!r2.ok)throw ghErr(r2);txt=await r2.text()}
-  let d=null;try{d=JSON.parse(txt)}catch(e){}
-  return{data:Array.isArray(d)?{songs:d,tomb:{}}:d,sha:j.sha};
-}
-async function ghPut(obj,sha){
-  const body={message:'sync chord library',content:btoa(unescape(encodeURIComponent(JSON.stringify(obj)))),...(sha?{sha}:{}),...(gh.branch?{branch:gh.branch}:{})};
-  const res=await fetch(ghUrl(),{method:'PUT',headers:{...ghH(),'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!res.ok)throw ghErr(res);
+function applyRemote(r){
+  const chg=sigOf(r.songs||[])!==sigOf(songs);
+  songs=r.songs||[];tomb=r.tomb||{};sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));
+  saveLocal();if(chg)refresh();
 }
 async function syncNow(){
-  if(!gh||busy)return;
+  if(!SYNC_ON||busy)return;
   busy=true;setSync('wait');
   try{
-    for(let k=0;k<3;k++){
-      const r=await ghGet(),m=merge(r.data||{});
-      const chg=sigOf(m.songs)!==sigOf(songs);
-      songs=m.songs;tomb=m.tomb;sig={};songs.forEach(x=>sig[x.id]=JSON.stringify({...x,u:0}));saveLocal();
-      const same=r.data&&sigOf(r.data.songs||[])===sigOf(songs)&&JSON.stringify(r.data.tomb||{})===JSON.stringify(tomb);
-      if(!same){try{await ghPut({songs,tomb},r.sha)}catch(e){if(e.status===409||e.status===422)continue;throw e}}
-      if(chg)refresh();
-      setSync('ok');break;
+    let r;
+    if(canEdit&&dirty){
+      r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({pw,songs,tomb})})).json();
+      if(r.error)throw new Error(r.error==='password'?'Password edit salah':r.error);
+      dirty=false;
+    }else{
+      r=await(await fetch(SYNC_URL+'?t='+Date.now(),{cache:'no-store'})).json();
+      if(canEdit&&r.songs&&!r.songs.length&&songs.length){dirty=true;again=true;return}
     }
-  }catch(e){setSync('err',e);toast(e.message)}
+    if(!r.songs)throw new Error('Respon server tidak valid');
+    applyRemote(r);setSync(canEdit?'ok':'view');
+  }catch(e){setSync('err',e);toast(e.message||'Gagal sync')}
   finally{busy=false;if(again){again=false;syncNow()}}
 }
-function initSync(){
-  gh?syncNow():setSync('local');
-  setInterval(()=>{if(!document.hidden)syncNow()},60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+async function checkAuth(){
+  if(SYNC_ON&&pw){
+    try{const r=await(await fetch(SYNC_URL,{method:'POST',body:JSON.stringify({action:'auth',pw})})).json();canEdit=!!r.ok}catch(e){canEdit=false}
+    if(!canEdit){pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}}
+  }
+  document.body.classList.toggle('ro',SYNC_ON&&!canEdit);
+}
+async function initSync(){
+  document.body.classList.toggle('ro',SYNC_ON&&!canEdit);
   $('sync').onclick=()=>{
-    const c=gh||{};$('g-repo').value=c.repo||'';$('g-path').value=c.path||'';$('g-branch').value=c.branch||'';$('g-token').value=c.token||'';
+    const ed=SYNC_ON&&canEdit;
+    $('g-info').textContent=!SYNC_ON?'Sync belum diaktifkan: tempel URL Apps Script di baris SYNC_URL pada file HTML.':ed?'Kamu sedang di mode edit. Perubahan otomatis tersimpan ke server.':'Kamu sedang di mode lihat. Masukkan password edit untuk menambah atau mengubah lagu.';
+    $('g-in').hidden=ed||!SYNC_ON;$('g-login').hidden=ed||!SYNC_ON;$('g-logout').hidden=!ed;$('g-pw').value='';
     $('dlg3').showModal();
   };
   $('g-close').onclick=()=>$('dlg3').close();
-  $('g-off').onclick=()=>{localStorage.removeItem('chordlib_gh');gh=null;$('dlg3').close();setSync('local')};
-  $('g-save').onclick=()=>{
-    const repo=$('g-repo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/$/,''),token=$('g-token').value.trim();
-    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){alert('Isi repo (username/nama-repo) dan token dulu ya');return}
-    gh={repo,path:$('g-path').value.trim()||'chord-library.json',branch:$('g-branch').value.trim(),token};
-    try{localStorage.setItem('chordlib_gh',JSON.stringify(gh))}catch(e){}
-    $('dlg3').close();syncNow();
+  $('g-logout').onclick=()=>{pw='';try{localStorage.removeItem('chordlib_pw')}catch(e){}canEdit=false;document.body.classList.add('ro');$('dlg3').close();setSync('view')};
+  $('g-login').onclick=async()=>{
+    const v=$('g-pw').value.trim();if(!v)return;
+    pw=v;await checkAuth();
+    if(canEdit){try{localStorage.setItem('chordlib_pw',pw)}catch(e){}$('dlg3').close();toast('Mode edit aktif ✨');syncNow()}
+    else alert('Password salah atau server tidak bisa dihubungi');
   };
+  if(!SYNC_ON){setSync('local');return}
+  await checkAuth();syncNow();
+  setInterval(()=>{if(!document.hidden)syncNow()},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
 
 const PRESET=['Pop','Rock','Indie','R&B','Jazz','Acoustic','Ballad','Folk','K-Pop','Dangdut','Soundtrack'];
 const G=x=>x.genres||(x.genre?x.genre.split(/[,\/;]+/).map(t=>t.trim()).filter(Boolean):[]);
-const allGenres=()=>[...new Set([...PRESET,...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
+let hiddenG=new Set();try{hiddenG=new Set(JSON.parse(localStorage.getItem('chordlib_hg'))||[])}catch(e){}
+const allGenres=()=>[...new Set([...PRESET.filter(g=>!hiddenG.has(g)),...songs.flatMap(G)])].sort((a,b)=>a.localeCompare(b));
 let fg=new Set(),fGenres=[],fImg='',favOnly=false,showDg=true,inst='g',instF=new Set();
 /* ---- chord logic ---- */
 const IDX={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
@@ -511,6 +510,21 @@ $('asspd').oninput=()=>{asLvl=+$('asspd').value;$('aslbl').textContent=asLvl;try
 $('astop').onclick=()=>{asPause();scrollTo({top:0,behavior:'smooth'})};
 addEventListener('wheel',()=>{if(asOn)asPause()},{passive:true});
 addEventListener('touchstart',e=>{if(asOn&&!e.target.closest('#asbar'))asPause()},{passive:true});
+/* ---- kelola genre ---- */
+function renderGM(){
+  $('glist').innerHTML=allGenres().map(g=>{const n=songs.filter(x=>G(x).includes(g)).length;return `<div class="grow"><span>${esc(g)} <small class="mut">${n} lagu</small></span><button type="button" data-d="${esc(g)}">🗑 Hapus</button></div>`}).join('')||'<p class="mut">Belum ada genre.</p>';
+}
+$('gmng').onclick=()=>{renderGM();$('dlg4').showModal()};
+$('g4close').onclick=()=>$('dlg4').close();
+$('glist').onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const g=b.dataset.d,n=songs.filter(x=>G(x).includes(g)).length;
+  if(n&&!confirm(`Hapus genre "${g}"? Genre ini akan dilepas dari ${n} lagu.`))return;
+  if(PRESET.includes(g)){hiddenG.add(g);try{localStorage.setItem('chordlib_hg',JSON.stringify([...hiddenG]))}catch(e){}}
+  songs.forEach(x=>{if(G(x).includes(g)){x.genres=G(x).filter(t=>t!==g);x.genre=x.genres.join(', ')}});
+  fGenres=fGenres.filter(t=>t!==g);fg.delete(g);
+  persist();renderG();renderGM();render();
+};
 /* ---- chord tooltip (hover on desktop, tap on phone) ---- */
 function showTip(el){
   const c=el.dataset.c,tp=$('tip');let h='';
